@@ -1,15 +1,15 @@
 #include "rhd2216_lib.h"
 
-// static variables accessible only used to this script
-static const char *device = "/dev/spidev0.0";
-// initialize with default values
-static const PiSPIProps props = {
-	.device = device;
-    .mode = 0; // pol = 0, phase = 0
-    .bpw = 8;
-    .speed = 500000;
-    .delay = 0;
-};
+props.device = device;
+props.mode = 0;
+props.bpw = 8;
+props.speed = 1000000;
+props.delay = 0;
+
+static void pabort(const char *s) {
+	perror(s);
+	abort();
+}
 
 static void print_usage(const char *prog)
 {
@@ -49,23 +49,41 @@ static void parse_opts(int argc, char *argv[])
 
 		switch (c) {
 		case 'D':
-			device = optarg;
+			props.device = optarg;
 			break;
 		case 's':
-			speed = atoi(optarg);
+			props.speed = atoi(optarg);
 			break;
 		case 'd':
-			delay = atoi(optarg);
+			props.delay = atoi(optarg);
 			break;
-		
 		}
 	}
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+	// static variables accessible only used to this script
+	char *device = PI_SPI_0_0;
+	// initialize with default values
+
+	int ret = 0;
 	int fd = open(device, O_RDWR);
+
+	parse_opts(argc, argv);
+
 	if (fd < 0)
 		pabort("can't open device");
+
+	ret = pi_spi_config(fd, &props);
+	if (ret == -1) 
+		pabort("could not configure pi spi properties");
+
+	uint8_t reg_data;
+	uint8_t reg_num = 62;
+	ret = rhd_reg_read(fd, 62, &reg_data);
+	printf("read: regnum: %d, result: 0x%02x", reg_num, reg_data);
+
+	close(fd);
     return 0;
 }
 

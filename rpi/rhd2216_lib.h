@@ -31,13 +31,10 @@ using SPI0:
 #define PI_SPI_1_0 "/dev/spidev1.0"
 #define PI_SPI_1_1 "/dev/spidev1.1"
 
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+#ifndef DEBUG
+#define DEBUG 1 // if nonzero, prints debug statements
+#endif
 
-typedef struct pi_spi_props {
-    const char *device;
-    uint8_t mode;
-    uint8_t bpw;
-    uint32_t speed;
-    uint16_t delay;
-} PiSPIProps;
-
+int pi_spi_config(int fd, uint8_t mode, uint8_t bpw, uint32_t speed);
+int rhd_spi_xfer(int fd, uint8_t *tx_buf, size_t tx_len, uint8_t *rx_buf); 
+int rhd_reg_read(int fd, uint8_t reg_num, uint8_t *result);
