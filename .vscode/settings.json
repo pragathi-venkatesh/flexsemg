@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "rhd2216_util.h": "c",
-        "rhd2216_lib.h": "c"
+        "rhd2216_lib.h": "c",
+        "pi_spi_lib.h": "c",
+        "getopt.h": "c"
     }
 }
