@@ -19,7 +19,10 @@ Usage:
 
 static uint8_t reg_data;
 static uint8_t reg_num;
-static uint8_t ch_num;
+static uint8_t mode;
+static uint8_t bpw;
+static uint32_t speed;
+// static uint8_t ch_num;
 static int FOUND_REG_NUM = 0;
 static int FOUND_REG_READ = 0;
 static int FOUND_REG_WRITE = 0;
@@ -39,7 +42,7 @@ static void print_usage(const char *prog)
 		 "  -n --reg_num  	RHD register number to read or write\n"
 		 "  -r --reg_read 	Read register specified by --reg_num\n"
 		 "  -w --reg_write  Write data (in hex) register specified by --reg_num\n"
-		 "  -c --convert    ADC channel to read. Valid channels 1-16\n"
+		 "  -c --convert    Reads all 16 channels at once"
 		 );
 	exit(1);
 }
@@ -56,7 +59,7 @@ static void parse_opts(int argc, char *argv[])
 			{ "reg_num", 	1, 0, 'n'},
 			{ "reg_read", 	0, 0, 'r'},
 			{ "reg_write", 	1, 0, 'w'},
-			{ "convert", 	1, 0, 'c'},
+			{ "convert", 	0, 0, 'c'},
 			{ NULL, 		0, 0, 0 },
 		};
 
@@ -90,7 +93,6 @@ static void parse_opts(int argc, char *argv[])
 			break;
 		case 'c':
 			FOUND_CONVERT = 1;
-			ch_num = 0;
 			break;
 		}
 	}
@@ -126,7 +128,10 @@ int main(int argc, char *argv[]) {
 	if (fd < 0)
 		pabort("can't open device");
 
-	ret = spi_config(fd, 0, 8, 1000000);
+	mode = 0;
+	bpw = 8;
+	speed = 1000000;
+	ret = spi_config(fd, mode, bpw, speed);
 	if (ret == -1) 
 		pabort("could not configure pi spi properties");
 	
@@ -140,6 +145,17 @@ int main(int argc, char *argv[]) {
 		// TODO
 		printf("write: reg_num: %d, write_data: 0x%02x\n", reg_num, reg_data);
 		ret = rhd_reg_write(fd, reg_num, reg_data);
+	}
+
+	if (FOUND_CONVERT) {
+		uint16_t data_buf[16];
+		ret = rhd_convert(fd, 0xffff, data_buf, 16);
+
+		printf("Reading all 16 channels:\n");
+		int i;
+		for (i=0; i<16; ++i) {
+			printf("ch%d, 0x%x\n", i, data_buf[i]);
+		}
 	}
 
 	close(fd);

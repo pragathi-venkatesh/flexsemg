@@ -1,5 +1,9 @@
 #include "pi_spi_lib.h"
 
+static uint8_t _mode;
+static uint8_t _bpw;
+static uint32_t _speed;
+
 static void pabort(const char *s) {
 	perror(s);
 	abort();
@@ -9,14 +13,14 @@ int spi_config(int fd, uint8_t mode, uint8_t bpw, uint32_t speed) {
 
     int ret;
 
-	uint8_t _mode = mode;
-	uint8_t _bpw = bpw;
-	uint8_t _speed = speed;
+	_mode = mode;
+	_bpw = bpw;
+	_speed = speed;
 
     /*
 	 * spi mode
 	 */
-	ret = ioctl(fd, SPI_IOC_WR_MODE, &mode);
+	ret = ioctl(fd, SPI_IOC_WR_MODE, &_mode);
 	if (ret == -1)
 		pabort("can't set spi mode");
 
