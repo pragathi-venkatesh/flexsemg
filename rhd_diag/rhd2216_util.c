@@ -27,6 +27,7 @@ static int FOUND_REG_NUM = 0;
 static int FOUND_REG_READ = 0;
 static int FOUND_REG_WRITE = 0;
 static int FOUND_CONVERT = 0;
+static int FOUND_CONFIG = 0;
 
 static void pabort(const char *s) {
 	perror(s);
@@ -36,13 +37,14 @@ static void pabort(const char *s) {
 static void print_usage(const char *prog)
 {
 	printf("Usage: %s [-Dsdnrwc]\n", prog);
-	puts("  -D --device   	device to use (default /dev/spidev0.1)\n"
-	     "  -s --speed    	max speed (Hz)\n"
-	     "  -d --delay    	delay (usec)\n"
-		 "  -n --reg_num  	RHD register number to read or write\n"
-		 "  -r --reg_read 	Read register specified by --reg_num\n"
-		 "  -w --reg_write  Write data (in hex) register specified by --reg_num\n"
-		 "  -c --convert    Reads all 16 channels at once"
+	puts("  -D --device		device to use (default /dev/spidev0.1)\n"
+	     "  -s --speed		max speed (Hz)\n"
+	     "  -d --delay		delay (usec)\n"
+		 "  -n --reg_num	\tRHD register number to read or write\n"
+		 "  -r --reg_read	\tRead register specified by --reg_num\n"
+		 "  -w --reg_write	Write data (in hex) register specified by --reg_num\n"
+		 "  -c --convert	\tReads all 16 channels at once\n"
+		 "  -g --config		Configures RHD registers to default values\n"
 		 );
 	exit(1);
 }
@@ -60,6 +62,7 @@ static void parse_opts(int argc, char *argv[])
 			{ "reg_read", 	0, 0, 'r'},
 			{ "reg_write", 	1, 0, 'w'},
 			{ "convert", 	0, 0, 'c'},
+			{ "config", 	0, 0, 'g'},
 			{ NULL, 		0, 0, 0 },
 		};
 
@@ -93,6 +96,9 @@ static void parse_opts(int argc, char *argv[])
 			break;
 		case 'c':
 			FOUND_CONVERT = 1;
+			break;
+		case 'g':
+			FOUND_CONFIG = 1;
 			break;
 		}
 	}
@@ -156,6 +162,11 @@ int main(int argc, char *argv[]) {
 		for (i=0; i<16; ++i) {
 			printf("ch%d, 0x%x\n", i, data_buf[i]);
 		}
+	}
+
+	if (FOUND_CONFIG) {
+		ret = rhd_reg_config_default(fd);
+		printf("Default register configuration done.\n");
 	}
 
 	close(fd);

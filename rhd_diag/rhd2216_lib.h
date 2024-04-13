@@ -1,10 +1,9 @@
 /*
+RHD utility functions. 
+* If using pi controller, use "pi_spi_lib.h".
+* If using NRF-52DK board as controller, uhhhh (TODO create nrfdk_spi_lib.h)
 RHD2000 series chips datasheet: 
 https://intantech.com/files/Intan_RHD2000_series_datasheet.pdf
-
-Linux SPI API (spidev) only supports half duplex. This means two way comm is
-possible, but not at the same time. writes and reads must occur sequentially.
-    for more info: https://www.kernel.org/doc/Documentation/spi/spidev
 
 https://www.raspberrypi.com/documentation/computers/raspberry-pi.html
 using SPI0: 
@@ -23,14 +22,22 @@ using SPI0:
 #include <getopt.h>
 #include "pi_spi_lib.h"
 
-#define PI_SPI_0_0 "/dev/spidev0.0"
-#define PI_SPI_0_1 "/dev/spidev0.1"
-#define PI_SPI_1_0 "/dev/spidev1.0"
-#define PI_SPI_1_1 "/dev/spidev1.1"
-
 #ifndef DEBUG
 #define DEBUG 1 // if nonzero, prints debug statements
 #endif
+
+#ifndef DONT_CARE
+#define DONT_CARE 0b00000000
+#endif
+
+typedef struct rhd_reg {
+    uint8_t reg_num;
+    uint8_t config_write_val;
+    uint8_t config_check_val;
+    int read_only;
+    const char* short_desc;
+    const char* long_desc;
+} rhd_reg_t;
 
 // get/set
 int get_dsp_offset_rem_en(void);
@@ -40,3 +47,4 @@ int set_dsp_offset_rem_en(int en);
 int rhd_reg_read(int fd, uint8_t reg_num, uint8_t *result);
 int rhd_reg_write(int fd, uint8_t reg_num, uint8_t reg_data);
 int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t *data_buf, size_t data_buf_len);
+int rhd_reg_config_default(int fd);
