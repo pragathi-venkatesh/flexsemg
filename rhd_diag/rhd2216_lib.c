@@ -50,6 +50,7 @@ int set_dsp_offset_rem_en(int en) {
 }
 
 int rhd_reg_read(int fd, uint8_t reg_num, uint8_t *result) {
+	printf("R: reg#%d\n", reg_num);
 	int ret;
 	size_t N = 2;
 	uint8_t tx_buf[] = {0, 0};
@@ -67,14 +68,15 @@ int rhd_reg_read(int fd, uint8_t reg_num, uint8_t *result) {
 
 	// do the actual read now
 	ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
-	if (ret == -1)
-		pabort("spi xfer failed");
 	
 	*result = rx_buf[1];
+	printf("Got data %x\n\n", *result);
+	
 	return ret;
 }
 
 int rhd_reg_write(int fd, uint8_t reg_num, uint8_t reg_data) {
+	printf("W: reg#%d, data %x\n", reg_num, reg_data);
 	int ret;
 	size_t N = 2;
 	uint8_t tx_buf[] = {0, 0};
@@ -89,25 +91,7 @@ int rhd_reg_write(int fd, uint8_t reg_num, uint8_t reg_data) {
 
 	// do the write
 	ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
-	if (ret == -1) {
-		pabort("spi xfer failed");
-	}
-
-	// read a dummy register 2 times
-	// to clear previous data from pipelining
-	tx_buf[0] = 0b11000000 & (40 & 0x3f); // read command word
-	ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
-	ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
-
-	// uint8_t read_data = rx_buf[1];
-	// if (read_data != reg_data) {
-	// 	printf(
-	// 		"WARNING: tried to write 0x%02x but got %0x02x instead.\n", 
-	// 		reg_data, 
-	// 		read_data);
-	// }
-
-	return 0;
+	return ret;
 }
 
 // if all channels active, active_ch_msk = 0xffff. If only ch1 active, active_ch_msk = 0x01 etc...
@@ -135,7 +119,9 @@ int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t *data_buf, size_t buf_
 			tx_buf[0] = dsp_offset_rem_en & 0b1;
 			ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
 			if (ret == -1) {
-				pabort("spi xfer failed");
+				char error_str[256];
+				sprintf(error_str, "spi xfer failed during convert ch %d", ch);
+				pabort(error_str);
 			}
 
 			if (counter >= 0) {
@@ -183,7 +169,3 @@ int rhd_reg_config_default(int fd) {
 
 	return 0;
 }
-
-// TODO prag chose which functions abort on spi failure. 
-// i'm thinking that only pi_spi_lib functions abort on failure 
-// and rhd lib functions will only care about non-spi xfer errors for abort.
