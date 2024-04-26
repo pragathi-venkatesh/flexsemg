@@ -55,3 +55,7 @@ dkms.conf
 
 # Build folder
 */build/*
+
+# Data files
+*/postprocess/data/*
+*.log
