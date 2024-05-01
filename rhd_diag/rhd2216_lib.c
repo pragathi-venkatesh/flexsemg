@@ -4,7 +4,7 @@ static int dsp_offset_rem_en = 0; // active high
 
 // register defaults
 const rhd_reg_t rhd2216_reg_list[] = {
-    // reg_num, default val, read_only, short_desc, loooooooooong_desc
+    // reg_num, default val, read_only, short_desc, loooooooooong_desc (TODO)
     {0, 0b11011110, 0b11011110, 0, "ADC Configuration and Amplifier Fast Settle", ""},
     {1, 0b00100000, 0b00100000, 0, "Supply Sensor and ADC Buffer Bias Current", ""},
     {2, 0b00101000, 0b00101000, 0, "MUX Bias Current", ""},
@@ -44,13 +44,17 @@ int get_dsp_offset_rem_en(void) {
 	return dsp_offset_rem_en;
 }
 
+// TODO is this supposed to do anything? like write to a register?
 int set_dsp_offset_rem_en(int en) {
 	dsp_offset_rem_en = en;
 	return 0;
 }
 
 int rhd_reg_read(int fd, uint8_t reg_num, uint8_t *result) {
-	printf("R: reg#%d\n", reg_num);
+	if (DEBUG) {
+		printf("R: reg#%d\n", reg_num);
+	}
+
 	int ret;
 	size_t N = 2;
 	uint8_t tx_buf[] = {0, 0};
@@ -70,13 +74,17 @@ int rhd_reg_read(int fd, uint8_t reg_num, uint8_t *result) {
 	ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
 	
 	*result = rx_buf[1];
-	printf("Got data %x\n\n", *result);
+	if (DEBUG) {
+		printf("Got data %x\n\n", *result);
+	}
 	
 	return ret;
 }
 
 int rhd_reg_write(int fd, uint8_t reg_num, uint8_t reg_data) {
-	printf("W: reg#%d, data %x\n", reg_num, reg_data);
+	if (DEBUG) {
+		printf("W: reg#%d, data %x\n", reg_num, reg_data);
+	}
 	int ret;
 	size_t N = 2;
 	uint8_t tx_buf[] = {0, 0};
@@ -135,37 +143,89 @@ int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t *data_buf, size_t buf_
 	return 0;
 }
 
+// // read until we get expected value or hit max_num_reads
+// static void check_read(int fd, uint8_t reg_num, uint8_t check_val, uint8_t *read_val) {
+// 	size_t count = 0;
+// 	size_t max_num_reads = 100;
+
+// 	rhd_reg_read(fd, reg_num, read_val);
+// 	while(*read_val != check_val) {
+// 		if (count > max_num_reads) {
+// 			break;
+// 		}
+// 		rhd_reg_read(fd, reg_num, read_val);
+// 		count++;
+// 	}
+// }
+
 // initializes RHD registers to default
 int rhd_reg_config_default(int fd) {
-	// size_t reg_list_len = sizeof(rhd2216_reg_list) / sizeof(rhd2216_reg_list[0]);
-	// if (DEBUG) {
-	// 	printf("PVDEBUG: Got reg_list_len %zu", reg_list_len);
-	// }
-	
-	// int i;
-	// for (i=0; i<reg_list_len; ++i) {
-	// 	rhd_reg_t cur_reg = rhd2216_reg_list[i];
-	// 	if (cur_reg.read_only) {
-	// 		continue;
-	// 	}
+	size_t reg_list_len = sizeof(rhd2216_reg_list) / sizeof(rhd2216_reg_list[0]);
+	if (DEBUG) {
+		printf("PVDEBUG: Got reg_list_len %zu\n", reg_list_len);
+	}
 
-	// 	uint8_t read_data;
-	// 	rhd_reg_write(fd, cur_reg.reg_num, cur_reg.config_write_val);
-	// 	rhd_reg_read(fd, cur_reg.reg_num, &read_data);
-	// 	if (read_data != cur_reg.config_check_val) {
-	// 		printf(
-	// 			"WARNING: expected reg %d to read %x after writing %x, but got %x instead\n",
-	// 			cur_reg.reg_num,
-	// 			cur_reg.config_check_val,
-	// 			cur_reg.config_write_val,
-	// 			read_data);
-	// 	}
-	// }
+	// idk why but michael does this. I think it's to provide enough clock cycles
+	uint8_t tx_buf[] = {0b11111111, 0};
+	uint8_t rx_buf[] = {0,0};
+	for (int i=0; i<20; ++i) {
+		rhd_spi_xfer(fd, tx_buf, 2, rx_buf);
+	}
+	printf("PVDEBUG: begin register config w 20 reads, got %d\n", rx_buf[1]);
 
-	uint8_t read_data;
-	rhd_reg_read(fd, 63, &read_data);
-	rhd_reg_read(fd, 63, &read_data);
-	rhd_reg_write(fd, 0, 0xde);
+	int i;
+	for (i=0; i<reg_list_len; ++i) {
+		rhd_reg_t cur_reg = rhd2216_reg_list[i];
+		if (cur_reg.read_only) {
+			continue;
+		}
+
+		uint8_t read_data;
+		rhd_reg_write(fd, cur_reg.reg_num, cur_reg.config_write_val);
+		rhd_reg_read(fd, cur_reg.reg_num, &read_data);
+		// check_read(fd, cur_reg.reg_num, cur_reg.config_check_val, &read_data);
+		if (read_data != cur_reg.config_check_val) {
+			printf(
+				"WARNING: expected reg %d to read %x after writing %x, but got %x instead\n",
+				cur_reg.reg_num,
+				cur_reg.config_check_val,
+				cur_reg.config_write_val,
+				read_data);
+		}
+	}
 
 	return 0;
+}
+
+int rhd_calibrate(int fd) {
+	int ret;
+	uint8_t tx_buf[] = {0,0};
+	uint8_t rx_buf[] = {0xde, 0xad};
+	tx_buf[0] = 0b01010101;
+	ret = rhd_spi_xfer(fd, tx_buf, 2, rx_buf);
+	if (ret == -1) {
+		pabort("ERROR:could not send calibration command\n");
+	}
+
+	// 9 dummy reads needed following calibrate
+	tx_buf[0] = 255;
+    tx_buf[1] = 0;
+	for( int i = 0; i < 9; i++){
+		rhd_spi_xfer(fd, tx_buf, 2, rx_buf);
+	}
+
+	return ret;
+}
+
+int rhd_clear_calibration(int fd) {
+	int ret;
+	uint8_t tx_buf[] = {0,0};
+	uint8_t rx_buf[] = {0xde, 0xad};
+	tx_buf[0] = 0b1101010;
+	ret = rhd_spi_xfer(fd, tx_buf, 2, rx_buf);
+	if (ret == -1) {
+		pabort("ERROR: could not send clear calibration command\n");
+	}
+
+	return ret;
 }

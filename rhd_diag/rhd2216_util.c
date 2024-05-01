@@ -10,6 +10,7 @@ Usage:
 	./rhd2216_util --reg_num 4 --reg_read
 * write 0xd6 to register #4
 	./rhd2216_util --reg_num 4 --reg_write 0xd6
+* configure registers to default configuration, calibrate, then 
 * following prints out complete usage
 	./rhd2216_util
 */
@@ -28,6 +29,8 @@ static int FOUND_REG_READ = 0;
 static int FOUND_REG_WRITE = 0;
 static int FOUND_CONVERT = 0;
 static int FOUND_CONFIG = 0;
+static int FOUND_CALIBRATE = 0;
+static int FOUND_CLEAR = 0;
 
 static void pabort(const char *s) {
 	perror(s);
@@ -45,29 +48,35 @@ static void print_usage(const char *prog)
 		 "  -w --reg_write	Write data (in hex) register specified by --reg_num\n"
 		 "  -c --convert	\tReads all 16 channels at once\n"
 		 "  -g --config		Configures RHD registers to default values\n"
+		 "  -C --calibrate	Initiate ADC self-calibration routine\n"
+		 "  -e --clear		Clear Calibration.\n"
 		 );
 	exit(1);
 }
 
 static void parse_opts(int argc, char *argv[])
 {
+	// TODO single character arguments not working (like -n, -e), 
+	// results in segfault
 	while (1) {
 		static const struct option lopts[] = {
+			// name, has_arg, int *flag, int *val
 			{ "device",  	1, 0, 'D' },
 			{ "speed",   	1, 0, 's' },
 			{ "delay",   	1, 0, 'd' },
 			{ "mode",		1, 0, 'M'},
-			// todo add RHD-specific options, such as register#, R, W, and data
 			{ "reg_num", 	1, 0, 'n'},
 			{ "reg_read", 	0, 0, 'r'},
 			{ "reg_write", 	1, 0, 'w'},
 			{ "convert", 	0, 0, 'c'},
 			{ "config", 	0, 0, 'g'},
+			{ "calibrate",  0, 0, 'C'},
+			{ "clear",		0, 0, 'e'},
 			{ NULL, 		0, 0, 0 },
 		};
 
 		int c;
-		c = getopt_long(argc, argv, "D:s:d:b:lHOLC3NRnrw", lopts, NULL);
+		c = getopt_long(argc, argv, "D:s:d:DsdMnrwcgCe", lopts, NULL);
 
 		if (c == -1)
 			break;
@@ -99,6 +108,12 @@ static void parse_opts(int argc, char *argv[])
 			break;
 		case 'g':
 			FOUND_CONFIG = 1;
+			break;
+		case 'C':
+			FOUND_CALIBRATE = 1;
+			break;
+		case 'e':
+			FOUND_CLEAR = 1;
 			break;
 		}
 	}
@@ -153,6 +168,18 @@ int main(int argc, char *argv[]) {
 		ret = rhd_reg_write(fd, reg_num, reg_data);
 	}
 
+	if (FOUND_CONFIG) {
+		ret = rhd_reg_config_default(fd);
+		printf("Default register configuration done.\n");
+	}
+
+	if (FOUND_CALIBRATE) {
+		ret = rhd_calibrate(fd);
+		if (ret == -1) {
+			printf("Calibration done.\n");
+		}
+	}
+
 	if (FOUND_CONVERT) {
 		uint16_t data_buf[16];
 		ret = rhd_convert(fd, 0xffff, data_buf, 16);
@@ -164,9 +191,11 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (FOUND_CONFIG) {
-		ret = rhd_reg_config_default(fd);
-		printf("Default register configuration done.\n");
+	if (FOUND_CLEAR) {
+		ret = rhd_clear_calibration(fd);
+		if (ret == 0) {
+			printf("Clear calibration done.\n");
+		}
 	}
 
 	close(fd);

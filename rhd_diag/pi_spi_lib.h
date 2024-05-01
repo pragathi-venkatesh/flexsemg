@@ -8,7 +8,7 @@
 #include <linux/spi/spidev.h>
 
 #ifndef DEBUG
-#define DEBUG 1 // if nonzero, prints debug statements
+#define DEBUG 0 // if nonzero, prints debug statements
 #endif
 
 #define PI_SPI_0_0 "/dev/spidev0.0"

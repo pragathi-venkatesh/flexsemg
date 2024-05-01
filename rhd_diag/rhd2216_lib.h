@@ -22,12 +22,11 @@ using SPI0:
 #include <getopt.h>
 #include "pi_spi_lib.h"
 
-#ifndef DEBUG
-#define DEBUG 1 // if nonzero, prints debug statements
-#endif
+#undef DEBUG // override all other debug statements?s
+#define DEBUG 0 // if nonzero, prints debug statements
 
 #ifndef DONT_CARE
-#define DONT_CARE 0b00000000
+#define DONT_CARE 0
 #endif
 
 typedef struct rhd_reg {
@@ -48,3 +47,5 @@ int rhd_reg_read(int fd, uint8_t reg_num, uint8_t *result);
 int rhd_reg_write(int fd, uint8_t reg_num, uint8_t reg_data);
 int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t *data_buf, size_t data_buf_len);
 int rhd_reg_config_default(int fd);
+int rhd_calibrate(int fd);
+int rhd_clear_calibration(int fd);
