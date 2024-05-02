@@ -34,3 +34,29 @@ Linux pragpiv4b 6.6.20+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.6.20-1+rpt1 (2024-03
     crwxrwxrwx   1 root spi     153,   0 Mar 25 00:17 spidev0.0
     crwxrwxrwx   1 root spi     153,   1 Mar 25 00:17 spidev0.1
     ```
+
+# what rhd register configs actually means:
+## default configuration (do this during initialization)
+NOTE: LPM: "low power mode"
+* reg 0: 
+  * set 0b11011110
+  * enable internal ADC bandwidth, disable amp fast settle, enable Vref enable, enable comparator bias current.
+* reg 1: 
+  * set 0b00100000
+  * enable on chip voltage sensor, set ADC buffer bias. optimum value depends on sample rate, check datasheet.
+* reg 2:
+  * set 0b00101000
+  * configure bias current, optimum value depends on sample rate, check datasheet
+* reg 3:
+  * set 0
+  * disable on-die temperature sensors
+  * disable off-chip circuitry like switches and LEDs and put into HiZ mode
+* reg 4:
+  * 
+
+## register fields for low power mode:
+* reg 0: 
+  * amp Vref enable[4]: set 0 
+  * ADC comparator bias[3:2]: set 0
+* reg 1:
+  * VDD sense enable[6]: set 0

@@ -5,7 +5,7 @@
 # Have to run through command line
 # Usage: 
 # * e.g. for data log collected through NRF Connect app:
-# >>> python utilities.py -src_type nrf_log -num_channels 1 -srate 1000 -fpath "C:\Users\praga\Downloads\Log 2024-01-04 17_08_58.txt"
+# >>> python flexsemg_postprocess.py -src_type nrf_log -num_channels 1 -srate 1000 -fpath "C:\Users\praga\Downloads\Log 2024-01-04 17_08_58.txt"
 # 
 
 import sys
