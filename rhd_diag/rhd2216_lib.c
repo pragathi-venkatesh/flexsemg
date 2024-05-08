@@ -17,7 +17,7 @@ const rhd_reg_t rhd2216_reg_list[] = {
     {9, 0b00000101, 0b00000001, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
     {10, 0b00101011, 0b01000100, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
     {11, 0b00000110, 0b00000001, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
-    {12, 0b01000000, 0b00000101, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
+    {12, 0b00101000, 0b00000101, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
     {13, 0b00000001, 0b00000001, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
     {14, 0b11111111, 0b11111111, 0, "Registers 14-17: Individual Amplifier Power", ""},
     {15, 0b11111111, 0b11111111, 0, "Registers 14-17: Individual Amplifier Power", ""},
