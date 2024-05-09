@@ -1,4 +1,4 @@
-This repository is for debugging the RHD22xx module with a pi or any other controllers. Follow below instructions for 
+This repository is for debugging the RHD22xx module with a pi or any other controllers. Follow below instructions for debugging using the raspberry pi.
 
 TBD: support for controllers other than pi
 
