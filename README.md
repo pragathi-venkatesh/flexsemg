@@ -1,4 +1,9 @@
+This repository is for debugging the RHD22xx module with a pi or any other controllers. Follow below instructions for 
+
+TBD: support for controllers other than pi
+
 # rpi headless setup
+* using Raspberry Pi v4 B https://www.raspberrypi.com/products/raspberry-pi-4-model-b/
 * installed recommended OS (64-bit Raspbian). supplied wifi network name and pw so pi will connect to wifi on boot.
 * set custom username/hostname.
 ```bash
