@@ -70,13 +70,13 @@ static void parse_opts(int argc, char *argv[])
 			{ "reg_write", 	1, 0, 'w'},
 			{ "convert", 	0, 0, 'c'},
 			{ "config", 	0, 0, 'g'},
-			{ "calibrate",  0, 0, 'C'},
+			{ "calibrate",  0, 0, 'l'},
 			{ "clear",		0, 0, 'e'},
 			{ NULL, 		0, 0, 0 },
 		};
 
 		int c;
-		c = getopt_long(argc, argv, "D:s:d:DsdMnrwcgCe", lopts, NULL);
+		c = getopt_long(argc, argv, "D:s:d:M:n:rwcCle", lopts, NULL);
 
 		if (c == -1)
 			break;
@@ -128,8 +128,8 @@ static void parse_opts(int argc, char *argv[])
 		FOUND_REG_READ = 1;
 	}
 
-	printf("PVDEBUG: found_reg_read: %d, found_reg_write: %d\n", 
-		FOUND_REG_READ, FOUND_REG_WRITE);
+	printf("PVDEBUG: found_reg_read: %d, found_reg_write: %d, found_calibrate: %d\n",
+		FOUND_REG_READ, FOUND_REG_WRITE, FOUND_CALIBRATE);
 }
 
 int main(int argc, char *argv[]) {
@@ -181,6 +181,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (FOUND_CONVERT) {
+		printf("PVDEBUG: in FOUND_CONVERT block");
 		uint16_t data_buf[16];
 		ret = rhd_convert(fd, 0xffff, data_buf, 16);
 
