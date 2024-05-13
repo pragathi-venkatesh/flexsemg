@@ -9,17 +9,17 @@ const rhd_reg_t rhd2216_reg_list[] = {
     {1, 0b00100000, 0b00100000, 0, "Supply Sensor and ADC Buffer Bias Current", ""},
     {2, 0b00101000, 0b00101000, 0, "MUX Bias Current", ""},
     {3, 0b00000000, 0b00000000, 0, "MUX Load, Temperature Sensor, and Auxiliary Digital Output", ""},
-    {4, 0b11010110, 0b11000100, 0, "ADC Output Format and DSP Offset Removal", ""},
+    {4, 0b11010110, 0b11010110, 0, "ADC Output Format and DSP Offset Removal", ""},
     {5, 0b00000000, 0b00000000, 0, "Impedance Check Control", ""},
     {6, 0b00000000, 0b00000000, 0, "Impedance Check DAC", ""},
     {7, 0b00000000, 0b00000000, 0, "Impedance Check Amplifier Select", ""},
-    {8, 0b00011110, 0b00011011, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
-    {9, 0b00000101, 0b00000001, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
-    {10, 0b00101011, 0b01000100, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
-    {11, 0b00000110, 0b00000001, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
-    {12, 0b00101000, 0b00000101, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
+    {8, 0b00011110, 0b00011110, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
+    {9, 0b00000101, 0b00000101, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
+    {10, 0b00101011, 0b00101011, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
+    {11, 0b00000110, 0b00000110, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
+    {12, 0b00101000, 0b00101000, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
     {13, 0b00000001, 0b00000001, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
-    {14, 0b11111111, 0b11111111, 0, "Registers 14-17: Individual Amplifier Power", ""},
+    {14, 0b00000001, 0b00000001, 0, "Registers 14-17: Individual Amplifier Power", ""},
     {15, 0b00000000, 0b00000000, 0, "Registers 14-17: Individual Amplifier Power", ""},
     {16, 0b00000000, 0b00000000, 0, "Registers 14-17: Individual Amplifier Power", ""},
     {17, 0b00000000, 0b00000000, 0, "Registers 14-17: Individual Amplifier Power", ""},
@@ -105,37 +105,57 @@ int rhd_reg_write(int fd, uint8_t reg_num, uint8_t reg_data) {
 // if all channels active, active_ch_msk = 0xffff. If only ch1 active, active_ch_msk = 0x01 etc...
 // TODO better description
 int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t *data_buf, size_t buf_len) {
-	// due to pipelining, first two rx results are garbage values.
-	// function will only start writing to data buf after first two spi transfers
-	int counter = -2;
+	// // due to pipelining, first two rx results are garbage values.
+	// // function will only start writing to data buf after first two spi transfers
+	if (active_chs_msk == 0) {
+		pabort("rhd_convert: argument active_chs_mask must be non-zero.");
+	}
 
+	printf("PVDEBUG: dsp rem en = %d\n", dsp_offset_rem_en);
+	size_t counter = 0;
 	int ret;
 	size_t N = 2;
 	uint8_t tx_buf[] = {0, 0};
 	uint8_t rx_buf[] = {0xde, 0xad};
 	uint8_t command_word = 0;
-	
-	while (counter < buf_len) {
+
+	// // debugging convert command
+	// int ch = 5;
+	// uint16_t data = 0xdead;
+	// command_word = 0;
+	// command_word |= ch & 0x3f;
+	// tx_buf[0] = command_word;
+	// tx_buf[1] = dsp_offset_rem_en & 0b1;
+	// ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
+	// ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
+	// ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
+	// data = (rx_buf[0] << 8) | rx_buf[1];
+	// printf("Convert: channel %d: 0x%x\n", ch, data);
+	// return ret;
+
+	while (counter < (buf_len+2)) {
 		for (int ch=0; ch<16; ++ch) {
+			if (counter >= (buf_len+2)) {
+				break;
+			}
 			// skip if channel not part of active_ch_msk
 			if ( !((0b1 << ch) & active_chs_msk) )
 				continue; // do not increment counter
 
 			command_word = 0;
 			command_word |= ch & 0x3f;
-			tx_buf[1] = command_word;
-			tx_buf[0] = dsp_offset_rem_en & 0b1;
+			tx_buf[0] = command_word;
+			tx_buf[1] = dsp_offset_rem_en & 0b1;
 			ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
 			if (ret == -1) {
-				char error_str[256];
-				sprintf(error_str, "spi xfer failed during convert ch %d", ch);
-				pabort(error_str);
+				printf("spi xfer failed during convert ch %d", ch);
 			}
 
-			if (counter >= 0) {
-				data_buf[counter] = (rx_buf[1] << 8) | rx_buf[0];
+			if (counter >= 2) {
+				data_buf[counter - 2] = (rx_buf[0] << 8) | rx_buf[1];
 			}
 
+			// printf("PVDEBUG: counter: %zu\n", counter);
 			++counter;
 		}
 	}
@@ -208,12 +228,18 @@ int rhd_calibrate(int fd) {
 	}
 
 	// 9 dummy reads needed following calibrate
+	// we are excessive so we do more.
 	tx_buf[0] = 255;
     tx_buf[1] = 0;
-	for( int i = 0; i < 9; i++){
-		rhd_spi_xfer(fd, tx_buf, 2, rx_buf);
+	for( int i = 0; i < 50; i++){
+		ret = rhd_spi_xfer(fd, tx_buf, 2, rx_buf);
 	}
 
+	// do DSP offset removal on all channels
+	uint16_t databuf[16];
+	set_dsp_offset_rem_en(1);
+	rhd_convert(fd, 0xffff, databuf, 16);
+	set_dsp_offset_rem_en(0);
 	return ret;
 }
 

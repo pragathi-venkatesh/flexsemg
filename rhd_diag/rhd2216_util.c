@@ -10,7 +10,8 @@ Usage:
 	./rhd2216_util --reg_num 4 --reg_read
 * write 0xd6 to register #4
 	./rhd2216_util --reg_num 4 --reg_write 0xd6
-* configure registers to default configuration, calibrate, then 
+* configure registers to default configuration, calibrate, then read all 16 channels
+	./rhd2216_util --config --calibrate --convert
 * following prints out complete usage
 	./rhd2216_util
 */
@@ -76,7 +77,7 @@ static void parse_opts(int argc, char *argv[])
 		};
 
 		int c;
-		c = getopt_long(argc, argv, "D:s:d:M:n:rwcCle", lopts, NULL);
+		c = getopt_long(argc, argv, "D:s:d:M:n:rw:c:g:l:e", lopts, NULL);
 
 		if (c == -1)
 			break;
@@ -94,26 +95,32 @@ static void parse_opts(int argc, char *argv[])
 		case 'n':
 			FOUND_REG_NUM = 1;
 			reg_num = atoi(optarg);
+			printf("PVDEBUG: found regnum %d\n", reg_num);
 			break;
 		case 'r':
 			FOUND_REG_READ = 1;
+			printf("PVDEBUG: found reg_read\n");
 			break;
 		case 'w':
 			FOUND_REG_WRITE = 1;
 			reg_data = strtoul(optarg, NULL, 16);
-			printf("PVDEBUG: found reg_data: %x\n", reg_data);
+			printf("PVDEBUG: found write w reg_data: %x\n", reg_data);
 			break;
 		case 'c':
 			FOUND_CONVERT = 1;
+			printf("PVDEBUG: found_convert\n");
 			break;
 		case 'g':
 			FOUND_CONFIG = 1;
+		 	printf("PVDEBUG: found config\n");
 			break;
-		case 'C':
+		case 'l':
 			FOUND_CALIBRATE = 1;
+			printf("PVDEBUG: found calibrate\n");
 			break;
 		case 'e':
 			FOUND_CLEAR = 1;
+			printf("PVDEBUG: found clear\n");
 			break;
 		}
 	}
@@ -128,8 +135,6 @@ static void parse_opts(int argc, char *argv[])
 		FOUND_REG_READ = 1;
 	}
 
-	printf("PVDEBUG: found_reg_read: %d, found_reg_write: %d, found_calibrate: %d\n",
-		FOUND_REG_READ, FOUND_REG_WRITE, FOUND_CALIBRATE);
 }
 
 int main(int argc, char *argv[]) {
@@ -151,10 +156,10 @@ int main(int argc, char *argv[]) {
 
 	mode = 0;
 	bpw = 8;
-	speed = 1000000;
+	speed = 10000000; // 10 mHz
 	ret = spi_config(fd, mode, bpw, speed);
 	if (ret == -1) 
-		pabort("could not configure pi spi properties");
+		pabort("Could not configure pi spi properties");
 	
 	if (FOUND_REG_READ) {
 		uint8_t read_data;
@@ -170,24 +175,25 @@ int main(int argc, char *argv[]) {
 
 	if (FOUND_CONFIG) {
 		ret = rhd_reg_config_default(fd);
-		printf("Default register configuration done.\n");
+		printf("Default register configuration done, ret code: %d\n", ret);
 	}
 
 	if (FOUND_CALIBRATE) {
 		ret = rhd_calibrate(fd);
-		if (ret == -1) {
-			printf("Calibration done.\n");
-		}
+		// calibrate command always returns 2? not sure what this means
+		// but I analyzed the signals in a logic analyzer and they looked
+		// fine. -PV 2024-May-12
+		printf("Calibration done, ret code: %d\n", ret);
 	}
 
 	if (FOUND_CONVERT) {
-		printf("PVDEBUG: in FOUND_CONVERT block");
-		uint16_t data_buf[16];
-		ret = rhd_convert(fd, 0xffff, data_buf, 16);
+		size_t N = 16;
+		uint16_t data_buf[N];
+		ret = rhd_convert(fd, 0xffff, data_buf, N);
 
 		printf("Reading all 16 channels:\n");
 		int i;
-		for (i=0; i<16; ++i) {
+		for (i=0; i<N; ++i) {
 			printf("ch%d, 0x%x\n", i, data_buf[i]);
 		}
 	}
@@ -195,7 +201,9 @@ int main(int argc, char *argv[]) {
 	if (FOUND_CLEAR) {
 		ret = rhd_clear_calibration(fd);
 		if (ret == 0) {
-			printf("Clear calibration done.\n");
+			printf("Clear calibration done, ret code: %d\n", ret);
+		} else {
+			printf("Clear calibration failed, err code: %d\n", ret);
 		}
 	}
 
