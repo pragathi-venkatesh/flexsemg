@@ -59,3 +59,4 @@ dkms.conf
 # Data files
 */postprocess/data/*
 *.log
+*/dlogs/*
