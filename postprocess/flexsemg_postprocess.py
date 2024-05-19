@@ -35,7 +35,7 @@ def reshape_to_num_channels(emg, number_of_channels):
 
     return data
 
-def format_nrf_log_file(file_name, number_of_channels, sample_rate):
+def format_nrf_log_file(file_name, number_of_channels, sample_rate_hz):
     file = open(file_name, "r")
     emg = []
     
@@ -57,6 +57,11 @@ def format_nrf_log_file(file_name, number_of_channels, sample_rate):
     time = np.arange(0, data.shape[1], 1)
     time = time / sample_rate
     return time, data
+
+def format_rhdutil_log_file(file_name, active_chs_mask, sample_rate_hz):
+    time = []
+    data = []
+    return time, data
             
 def plot_emg_data(time, data, title=""):
     number_of_channels = np.shape(data)[0]
@@ -67,9 +72,10 @@ def plot_emg_data(time, data, title=""):
         plt.show()
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-src_type", type=str, choices=["nrf_log"])
+parser.add_argument("-src_type", type=str, choices=["nrf_log", "rhdutil_log"])
 parser.add_argument("-fpath", type=str, help="filepath of data")
 parser.add_argument("-num_channels", type=int, choices=list(range(1,17)))
+parser.add_argument("-active_chs_mask", type=lambda x: int(x,16))
 parser.add_argument("-srate", type=int, default=1, help="sampling rate in hz")
 args, unknown = parser.parse_known_args()
 
@@ -78,6 +84,12 @@ if __name__ == "__main__":
         time, data = format_nrf_log_file(
             file_name=args.fpath, 
             number_of_channels=args.num_channels, 
-            sample_rate=args.srate,
+            sample_rate_hz=args.srate,
             )
-        plot_emg_data(time,data,title=os.path.basename(args.fpath))
+    elif args.src_type == "rhdutil_log":
+        time, data = format_nrf_log_file(
+            file_name=args.fpath, 
+            active_chs_mask=args.active_chs_mask, 
+            sample_rate_hz=args.srate,
+            )
+    plot_emg_data(time,data,title=os.path.basename(args.fpath))
