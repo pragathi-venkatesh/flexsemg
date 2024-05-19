@@ -90,3 +90,10 @@ int rhd_spi_xfer(int fd, uint8_t *tx_buf, size_t tx_len, uint8_t *rx_buf) {
 	}
     return ret;
 }
+
+// making a wrapper function because I don't want any dependent
+// libraries to use wiringPi functions (because it's only for pi).
+// -PV 2024-May-18
+void delay_us(unsigned long us) {
+	usleep(us);
+}

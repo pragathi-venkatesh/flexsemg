@@ -19,8 +19,8 @@ const rhd_reg_t rhd2216_reg_list[] = {
     {11, 0b00000110, 0b00000110, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
     {12, 0b00101000, 0b00101000, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
     {13, 0b00000001, 0b00000001, 0, "Registers 8-13: On-Chip Amplifier Bandwidth Select", ""},
-    {14, 0b00000001, 0b00000001, 0, "Registers 14-17: Individual Amplifier Power", ""},
-    {15, 0b00000000, 0b00000000, 0, "Registers 14-17: Individual Amplifier Power", ""},
+    {14, 0b11111111, 0b11111111, 0, "Registers 14-17: Individual Amplifier Power", ""},
+    {15, 0b11111111, 0b11111111, 0, "Registers 14-17: Individual Amplifier Power", ""},
     {16, 0b00000000, 0b00000000, 0, "Registers 14-17: Individual Amplifier Power", ""},
     {17, 0b00000000, 0b00000000, 0, "Registers 14-17: Individual Amplifier Power", ""},
     
@@ -103,12 +103,18 @@ int rhd_reg_write(int fd, uint8_t reg_num, uint8_t reg_data) {
 }
 
 // if all channels active, active_ch_msk = 0xffff. If only ch1 active, active_ch_msk = 0x01 etc...
-// TODO better description
-int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t *data_buf, size_t buf_len) {
-	// // due to pipelining, first two rx results are garbage values.
-	// // function will only start writing to data buf after first two spi transfers
+int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t srate, uint16_t *data_buf, size_t buf_len) {
 	if (active_chs_msk == 0) {
 		pabort("rhd_convert: argument active_chs_mask must be non-zero.");
+	}
+
+	if (srate > RHD_MAX_SRATE) {
+		printf(
+			"WARNING: desired srate %d Hz greater than max srate %d Hz. Defaulting to max srate.",
+			srate,
+			RHD_MAX_SRATE
+		);
+		srate = RHD_MAX_SRATE;
 	}
 
 	printf("PVDEBUG: dsp rem en = %d\n", dsp_offset_rem_en);
@@ -118,22 +124,14 @@ int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t *data_buf, size_t buf_
 	uint8_t tx_buf[] = {0, 0};
 	uint8_t rx_buf[] = {0xde, 0xad};
 	uint8_t command_word = 0;
+	uint16_t delay_amt_us = 1000000 / srate;
 
-	// // debugging convert command
-	// int ch = 5;
-	// uint16_t data = 0xdead;
-	// command_word = 0;
-	// command_word |= ch & 0x3f;
-	// tx_buf[0] = command_word;
-	// tx_buf[1] = dsp_offset_rem_en & 0b1;
-	// ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
-	// ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
-	// ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
-	// data = (rx_buf[0] << 8) | rx_buf[1];
-	// printf("Convert: channel %d: 0x%x\n", ch, data);
-	// return ret;
-
+	// due to pipelining, first two rx results are garbage values.
+	// function will only start writing to data buf after first two spi transfers
 	while (counter < (buf_len+2)) {
+		// assume convert occurs instantly. 
+		// enforce sample rate by delaying by 1/srate seconds
+		delay_us(delay_amt_us);
 		for (int ch=0; ch<16; ++ch) {
 			if (counter >= (buf_len+2)) {
 				break;
@@ -179,13 +177,14 @@ int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t *data_buf, size_t buf_
 // }
 
 // initializes RHD registers to default
-int rhd_reg_config_default(int fd) {
+int rhd_reg_config_default(int fd, uint16_t active_chs_mask) {
 	size_t reg_list_len = sizeof(rhd2216_reg_list) / sizeof(rhd2216_reg_list[0]);
 	if (DEBUG) {
 		printf("PVDEBUG: Got reg_list_len %zu\n", reg_list_len);
 	}
 
-	// idk why but michael does this. I think it's to provide enough clock cycles
+	// idk why but michael does 20 extra reads in his 2022 nrf code.
+	// seems overkill but why not. -PV 2024-May-18
 	uint8_t tx_buf[] = {0b11111111, 0};
 	uint8_t rx_buf[] = {0,0};
 	for (int i=0; i<20; ++i) {
@@ -203,16 +202,20 @@ int rhd_reg_config_default(int fd) {
 		uint8_t read_data;
 		rhd_reg_write(fd, cur_reg.reg_num, cur_reg.config_write_val);
 		rhd_reg_read(fd, cur_reg.reg_num, &read_data);
-		// check_read(fd, cur_reg.reg_num, cur_reg.config_check_val, &read_data);
 		if (read_data != cur_reg.config_check_val) {
 			printf(
 				"WARNING: expected reg %d to read %x after writing %x, but got %x instead\n",
 				cur_reg.reg_num,
 				cur_reg.config_check_val,
 				cur_reg.config_write_val,
-				read_data);
+				read_data
+				);
 		}
 	}
+
+	// power on active channels based on active_chs_mask
+	rhd_reg_write(fd, 14, (uint8_t) (active_chs_mask & 0xff));
+	rhd_reg_write(fd, 15, (uint8_t) (active_chs_mask >> 8) && 0xff);
 
 	return 0;
 }
@@ -238,7 +241,8 @@ int rhd_calibrate(int fd) {
 	// do DSP offset removal on all channels
 	uint16_t databuf[16];
 	set_dsp_offset_rem_en(1);
-	rhd_convert(fd, 0xffff, databuf, 16);
+	// read from all 16 channels, doesn't matter if they are active or not.
+	rhd_convert(fd, 0xffff, 1000, databuf, 16);
 	set_dsp_offset_rem_en(0);
 	return ret;
 }
