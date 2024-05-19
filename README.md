@@ -91,3 +91,15 @@ NOTE: LPM: "low power mode"
   * VDD sense enable[6]: set `0`
 * reg 14-17: set `0` to power down amplifiers, saving power if there are channels that don't need to be observed. current saved is 7.6 uA/kHz per amplifier. 
   * e.g. if powering down 16 channels that originally operate at 1 kHz, saves 0.1216 mA.
+
+# Speeds/timings for all the things
+| thing | max speed | source |
+| ----- | --------- | -------- |
+| RHD SPI SCLK | 25 MHz | RHD2000 series Datasheet |
+| pi v4 SPI SCLK | ~125 MHz | https://raspberrypi.stackexchange.com/questions/699/what-spi-frequencies-does-raspberry-pi-support |
+| NRF52 SPI SCLK | 8 MHz* | https://devzone.nordicsemi.com/f/nordic-q-a/20683/nrf52-spis-max-speed-when-connected-to-a-hub#:~:text=According%20to%20the%20nrf52%20specification,the%20SPIS%20accepts%20is%208MHz.
+| 16 chs RHD ADC read @ 12.5 MHz SPI | 70 us | saleae logic analyzer output |
+| 16 chs RHD ADC read @ 8.0 MHz SPI | 162 us | saleae logic analyzer output |
+
+
+\**cannot find official NRF52DK max SPI speed, people reporting in forums*
