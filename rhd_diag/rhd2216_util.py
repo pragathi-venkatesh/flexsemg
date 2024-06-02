@@ -1,7 +1,8 @@
 """
 2024-April-07 Pragathi Venkatesh (PV)
-Python wrapper for rhd2216_util.c
-+ option for plotting 
+plotting datalogs created by rhd2216_util.c
+requires a machine that can run matplotlib
+DO NOT RUN ON PI, debian does not support matplotlib.
 
 Usage:
 # TODO
@@ -10,15 +11,20 @@ import os
 import re
 import sys
 import argparse
-import subprocess
-# numpy and pyplot needed ONLY IF PLOTTING REQUIRED
+import numpy as np
+from matplotlib import pyplot as plt
 
-BIN_PATH = "./build/rhd2216_util"
 VLSB = 0.195E-6 # V per least-significant bit of ADC channel
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--plot", action="store", type=str, help="filepath of rhd2216_util datalog.")
-args, unknown = parser.parse_known_args()
+def install_and_import(package):
+    import importlib
+    try:
+        importlib.import_module(package)
+    except ImportError:
+        import pip
+        pip.main(['install', package])
+    finally:
+        globals()[package] = importlib.import_module(package)
 
 def bitmask_to_indices(bitmask):
     """
@@ -44,7 +50,6 @@ def unsigned_to_twoscomp(n):
     return n - 0x10000 if n & 0x8000 else n
 
 def plot_rhd2216util_dlog(fpath):
-    fpath = r"C:\Users\mypra\Downloads\rhd2216_util_convert_20240525_1839_N1000.txt"
     f = open(fpath, 'r')
 
     active_chs_mask = 0
@@ -96,37 +101,10 @@ def plot_rhd2216util_dlog(fpath):
 
 
 if __name__ == "__main__":
-    delimiter = " "
-    cli_args = delimiter.join(sys.argv)
-    cmd = f"{BIN_PATH} {cli_args}"
-    print(f"Running subprocess: {cmd}")
-    ret = subprocess.run(cmd, shell=True, capture_output=True)
+    usage = "python rhd2216_util.py <DATALOG FILEPATH>"
+    if len(sys.argv) < 2:
+        print("Usage: " + usage)
+        raise Exception("Please provide datalog filepath.")
 
-    # plot generated fpath if "--convert or -c tag present in args"
-    if ("--convert" in sys.argv) or ("-c" in sys.argv) or args.plot:
-        # sorry, had to put imports here
-        try:
-            import numpy as np
-            from matplotlib import pyplot as plt
-        except:
-            raise Exception("ERROR: need to install numpy and matplotlib to postprocess/plot.")
-        
-        # plot any files generated from running rhd2216_util
-        fpath1 = None
-        fpath2 = args.plot
-        m = re.search(r"data stored in (.+)", ret.stdout)
-        if m:
-            fpath1 = m.group(1)
-
-        if fpath1: 
-            plot_rhd2216util_dlog(fpath1)
-        
-        if fpath2:
-            plot_rhd2216util_dlog(fpath2)
-
-
-
-
-
-    
-    
+    fpath = sys.argv[1]
+    plot_rhd2216util_dlog(fpath)
