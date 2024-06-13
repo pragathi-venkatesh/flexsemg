@@ -155,6 +155,8 @@ int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t srate, uint16_t *data_
 
 			// printf("PVDEBUG: counter: %zu\n", counter);
 			++counter;
+			
+			// TODO set DSP offset flag depending on sample rate and integral of past values
 		}
 	}
 

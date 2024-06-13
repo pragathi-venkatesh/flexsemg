@@ -4,9 +4,12 @@
 # 
 # Have to run through command line
 # Usage: 
-# * e.g. for data log collected through NRF Connect app:
-# >>> python flexsemg_postprocess.py -src_type nrf_log -num_channels 1 -srate 1000 -fpath "C:\Users\praga\Downloads\Log 2024-01-04 17_08_58.txt"
-# 
+# for data log collected through NRF Connect app:
+# $ python flexsemg_postprocess.py -src_type nrf_log -num_channels 1 -srate 1000 -fpath <datalog filepath>
+# for data collected using rhd2216_util:
+# $ python flexsemg_postprocess.py -src_type rhdutil_log -fpath <datalog filepath>
+# for testing this module:
+# $ python flexsemg_postprocess.py -test
 
 import sys
 import re
