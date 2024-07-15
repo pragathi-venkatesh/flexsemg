@@ -1,8 +1,21 @@
 This repository is for debugging the RHD22xx module with a pi or any other controllers. Follow below instructions for debugging using the raspberry pi.
 
-TBD: support for controllers other than pi
+TBD: support for controllers other than pi (especially NRF52 DK)
 
-# rpi headless setup
+- [instructions for rpi](#instructions-for-rpi)
+  - [rpi headless setup](#rpi-headless-setup)
+  - [rpi SPI control](#rpi-spi-control)
+  - [using rhdutil diag:](#using-rhdutil-diag)
+- [plotting from logs:](#plotting-from-logs)
+- [speeds/timings for all the things](#speedstimings-for-all-the-things)
+- [what rhd register configs actually mean:](#what-rhd-register-configs-actually-mean)
+  - [default configuration (do this during initialization)](#default-configuration-do-this-during-initialization)
+  - [register fields for low power mode:](#register-fields-for-low-power-mode)
+- [prag TODO:](#prag-todo)
+
+
+# instructions for rpi
+## rpi headless setup
 * using Raspberry Pi v4 B https://www.raspberrypi.com/products/raspberry-pi-4-model-b/
 * installed recommended OS (64-bit Raspbian). supplied wifi network name and pw so pi will connect to wifi on boot.
 * set custom username/hostname.
@@ -18,7 +31,7 @@ Linux pragpiv4b 6.6.20+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.6.20-1+rpt1 (2024-03
 * go to "Raspberry Pi Configuration" and enable all interfaces
 ![image](./rpi/raspi_config_interfaces.png)
 
-# rpi SPI control
+## rpi SPI control
 [https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#software](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#serial-peripheral-interface-spi)
 
 1. check SPI 0 and 1 is enabled @ boot by checking `/boot/firmware/config.txt`
@@ -40,7 +53,7 @@ Linux pragpiv4b 6.6.20+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.6.20-1+rpt1 (2024-03
     crwxrwxrwx   1 root spi     153,   1 Mar 25 00:17 spidev0.1
     ```
 
-# using rhdutil diag:
+## using rhdutil diag:
 1. clone this repo
 1. navigate to rhd_diag directory
 ```cd ./rhd_diag```
@@ -48,9 +61,21 @@ Linux pragpiv4b 6.6.20+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.6.20-1+rpt1 (2024-03
 1. for more help, run `./build/rhd2216_util`
 
 # plotting from logs:
-TODO (add screenshots and pictures)
+TODO (add screenshots and example python script)
 
-# what rhd register configs actually means:
+# speeds/timings for all the things
+| thing | max speed/min duration | source |
+| ----- | --------- | -------- |
+| RHD SPI SCLK | 25 MHz | RHD2000 series Datasheet |
+| pi v4 SPI SCLK | ~125 MHz | https://raspberrypi.stackexchange.com/questions/699/what-spi-frequencies-does-raspberry-pi-support |
+| NRF52 SPI SCLK | 8 MHz* | https://devzone.nordicsemi.com/f/nordic-q-a/20683/nrf52-spis-max-speed-when-connected-to-a-hub#:~:text=According%20to%20the%20nrf52%20specification,the%20SPIS%20accepts%20is%208MHz.
+| 16 chs RHD ADC read @ 12.5 MHz SPI | 70 us | [saleae logic analyzer output](misc/saleae_captures/20240518_config_calibrate_convert_timing_12p5MHzSPI.sal) |
+| 16 chs RHD ADC read @ 8.0 MHz SPI | 162 us | [saleae logic analyzer output](misc/saleae_captures/20240518_config_calibrate_convert_timing_8MHzSPI.sal) |
+
+
+\**cannot find official NRF52DK max SPI speed, people reporting in forums*
+
+# what rhd register configs actually mean:
 ## default configuration (do this during initialization)
 NOTE: LPM: "low power mode"
 * reg 0: 
@@ -102,17 +127,7 @@ NOTE: LPM: "low power mode"
 * reg 14-17: set `0` to power down amplifiers, saving power if there are channels that don't need to be observed. current saved is 7.6 uA/kHz per amplifier. 
   * e.g. if powering down 16 channels that originally operate at 1 kHz, saves 0.1216 mA.
 
-# Speeds/timings for all the things
-| thing | max speed/min duration | source |
-| ----- | --------- | -------- |
-| RHD SPI SCLK | 25 MHz | RHD2000 series Datasheet |
-| pi v4 SPI SCLK | ~125 MHz | https://raspberrypi.stackexchange.com/questions/699/what-spi-frequencies-does-raspberry-pi-support |
-| NRF52 SPI SCLK | 8 MHz* | https://devzone.nordicsemi.com/f/nordic-q-a/20683/nrf52-spis-max-speed-when-connected-to-a-hub#:~:text=According%20to%20the%20nrf52%20specification,the%20SPIS%20accepts%20is%208MHz.
-| 16 chs RHD ADC read @ 12.5 MHz SPI | 70 us | saleae logic analyzer output |
-| 16 chs RHD ADC read @ 8.0 MHz SPI | 162 us | saleae logic analyzer output |
 
-
-\**cannot find official NRF52DK max SPI speed, people reporting in forums*
 
 # prag TODO:
 * find max sample rate of rhd - found from delays - pause btwn sampling has to be > 10x time it takes to sample all 16 channels = 1/162E-6s = 6172Hz --> safe to say max srate is 5000 Hz?
