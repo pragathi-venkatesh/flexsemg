@@ -1,9 +1,10 @@
-# Author: Pragathi Venkatesh 04 Jan 2024
+# Author: Pragathi Venkatesh 2024-Jan-04
 #
-# Code to convert from various forms of raw data and plot
+# Code to convert from various forms of raw datalogs, and filter+plot signals.
 # 
 # Have to run through command line
 # Usage: 
+# run from flexsemg/postprocess directory.
 # for data log collected through NRF Connect app:
 # $ python flexsemg_postprocess.py -src_type nrf_log -num_channels 1 -srate 1000 -fpath <datalog filepath>
 # for data collected using rhd2216_util:
@@ -24,18 +25,11 @@ import argparse
 import numpy as np
 import os.path
 from matplotlib import pyplot as plt
+from scipy.signal import butter, sosfilt
 
 VLSB = 0.195E-6 # V per least-significant bit of ADC channel
-
-def install_and_import(package):
-    import importlib
-    try:
-        importlib.import_module(package)
-    except ImportError:
-        import pip
-        pip.main(['install', package])
-    finally:
-        globals()[package] = importlib.import_module(package)
+NRF_LOG = "nrf_log"
+RHDUTIL_LOG = "rhdutil_log"
 
 def bitmask_to_indices(bitmask):
     """
@@ -55,10 +49,47 @@ def unsigned_to_twoscomp(n):
     :param n: A 16-bit unsigned integer.
     :return: The corresponding two's complement signed integer.
 
-    from chatgpt
+    from chatgpt.
     """
     n = int(n)
     return n - 0x10000 if n & 0x8000 else n
+
+def apply_bandpass_filter(data, srate, lowcut, highcut, order=4):
+    """
+    Apply a bandpass filter to each row of the data array.
+    
+    :param data (numpy.ndarray): An NxM array where each row is a signal.
+    :param srate (float): sampling rate in Hz.
+    :param lowcut (float): The low frequency cutoff for the bandpass filter.
+    :param highcut (float): The high frequency cutoff for the bandpass filter.
+    :param order (int): The order of the filter. Default is 4.
+    
+    :return filtered_data (numpy.ndarray): The filtered data array.
+
+    from chatgpt.
+    """
+    # design the bandpass filter
+    sos = butter(order, [lowcut, highcut], btype='band', fs=srate, output='sos')
+    # apply the filter to each row of the data array
+    filtered_data = np.array([sosfilt(sos, row) for row in data])
+    return filtered_data
+
+def get_fft(data, srate):
+    """
+    :param data: NxM array
+    :param srate: sample rate in Hz
+    :return: freqs (Nx1 array) and fft (NxM array)
+
+    NOTE: uses rfft since the signals are always real
+    """
+    # compute the fft for each row
+    fft = np.fft.rfft(data, axis=1)
+    # get corresponding frequences
+    N = data.shape[0]
+    M = data.shape[1]
+    fft_M = np.shape(fft)[1]
+    freqs = np.fft.fftfreq(M, d=1/srate)[0:fft_M]
+    return freqs, fft
 
 def format_nrf_log_file(fpath, number_of_channels, sample_rate_hz):
     file = open(fpath, "r")
@@ -96,9 +127,10 @@ def format_nrf_log_file(fpath, number_of_channels, sample_rate_hz):
     time = time / sample_rate_hz
 
     properties = {
-        "source": fpath,
-        "number_of_channels": number_of_channels,
-        "sample_rate_hz": sample_rate_hz,
+        "src": fpath,
+        "src_type": NRF_LOG,
+        "channels": list(range(number_of_channels)),
+        "srate_hz": sample_rate_hz,
     }
     return time, data, properties
 
@@ -135,10 +167,10 @@ def format_rhdutil_log_file(fpath):
         print(f"Please check that first 3 lines match format:\n{expected_format}")
 
     # read the next nsamples lines and add to data
-    indeces = bitmask_to_indices(active_chs_mask)
-    nrows = len(indeces)
+    indices = bitmask_to_indices(active_chs_mask)
+    nrows = len(indices)
     ncols = nsamples // nrows
-    data = np.zeros([len(indeces), ncols])
+    data = np.zeros([len(indices), ncols])
     for col in range(ncols):
         for row in range(nrows):
             line = f.readline()
@@ -153,56 +185,77 @@ def format_rhdutil_log_file(fpath):
 
     # handle properties
     properties = {
+        "channels": indices,
+        "src": fpath,
+        "src_type": RHDUTIL_LOG,
         "active_chs_mask": active_chs_mask,
         "nsamples": nsamples,
-        "srate (Hz)": srate,
+        "srate_hz": srate,
     }
     return time, data, properties
       
-def plot_nrf_data(time, data, title=""):
-    number_of_channels = np.shape(data)[0]
-    fig, axs = plt.subplots(number_of_channels, 1, sharex=True, sharey=True)
-    for i in range(number_of_channels):
-        axs[i].plot(time, data[i, :], linewidth=0.2)
-    plt.suptitle(title)
-    plt.show()
-
-    return fig, axs
-
-def plot_rhdutil_log_file(fpath):
-    time, data, properties = format_rhdutil_log_file(fpath)
+def plot_data(time, data, properties, plot_fft=True):
     nrows = np.shape(data)[0]
-    indeces = bitmask_to_indices(properties["active_chs_mask"])
+    ncols = 1
+    srate_hz = 1
+    freqs = None
+    fft = None
+    title = ""
+    channels = ["?"] * nrows
 
-    if nrows > 1:
-        fig, axs = plt.subplots(nrows=nrows, ncols=1, sharex=True, figsize=(8,16))
-        for row in range(nrows):
-            axs[row].plot(time, data[row])
-            axs[row].set_ylabel("ch%02d (mV)" % indeces[row])
-        axs[-1].set_xlabel("Time (s)")
-        axs[0].set_title(os.path.basename(fpath))
-        fig.show()
+    # get properties
+    if 'src' in properties:
+        title = properties['src']
+    
+    if 'srate_hz' in properties:
+        srate_hz = properties['srate_hz']
     else:
-        # for only one row, plt.subplots returns fig, ax (only one axes) instead of list of axes
-        # if we try to do axs[row] like for the nrows>2 case, we get this error:
-        # TypeError: 'Axes' object is not subscriptable
-        fig, axs = plt.subplots(nrows=nrows, ncols=1, sharex=True, figsize=(8,16))
-        for row in range(nrows):
-            axs.plot(time, data[row])
-            axs.set_ylabel("ch%02d (mV)" % indeces[row])
-        axs.set_xlabel("Time (s)")
-        axs.set_title(os.path.basename(fpath))
-        fig.show()
+        srate_hz = np.diff(time)[0]
+
+    if 'channels' in properties:
+        channels = properties['channels']
+    
+    # add another column to plot fft (if plot_fft specified)
+    if plot_fft:
+        freqs, fft = get_fft(data, srate_hz)
+        ncols = 2
+
+    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(8,16))
+    if nrows==1:
+        axs = [axs]
+    if ncols==1:
+        axs = [[ax] for ax in axs]
+    
+    # plot signal
+    for row in range(nrows):
+        axs[row, 0].plot(time, data[row], c='royalblue')
+        axs[row, 0].set_ylabel("ch %s (mV)" % str(channels[row]))
+        axs[row, 0].sharey(axs[0,0])
+        axs[row, 0].sharex(axs[0,0])
+        # plot fft in right column
+        if plot_fft:
+            axs[row, 1].plot(freqs, np.abs(fft[row]), c='orangered')
+            axs[row, 1].sharey(axs[0,1])
+            axs[row, 1].sharex(axs[0,1])
+
+    # add labels 
+    axs[0,0].set_title("signal")
+    axs[-1, 0].set_xlabel("Time (s)")
+    if plot_fft:
+        axs[-1, 1].set_xlabel("Frequency (Hz)")
+        axs[0,1].set_title("FFT")
+
+
+    plt.tight_layout()
 
     return fig, axs
-
 
 def do_test():
     print("============testing NRF log plotting===============")
     os.system(f"python  \"{__file__}\" -src_type nrf_log -srate 600 -num_channels 16 -fpath ./example_dlogs/example_nrf_log_16_chs.txt")
     print("============NRF plotting test done.================\n\n")
     print("============testing RHD util log plotting===============")
-    os.system(f"python \"{__file__}\" -src_type rhdutil_log -fpath ./example_dlogs/example_rhd2216_util_log_20240525_1839_N1000.txt")
+    os.system(f"python \"{__file__}\" -src_type rhdutil_log -fpath ./example_dlogs/example_rhd2216_util_convert_20240713_2357_N100000.txt")
     print("============RHD log plotting test done.================\n\n")
 
 if __name__ == "__main__":
@@ -212,10 +265,12 @@ if __name__ == "__main__":
     parser.add_argument("-fpath", action="store", type=str, help="filepath of data")
     parser.add_argument("-num_channels", action="store", type=int, choices=list(range(1,17)))
     parser.add_argument("-srate", action="store", type=int, default=1, help="sampling rate in hz")
+    parser.add_argument("--fft", action='store_true', help="flag to plot fft along with time-domain data")
     args, unknown = parser.parse_known_args()
 
     if args.test:
         do_test()
+        print("Test done, exiting.")
         sys.exit()
 
     if not args.fpath:
@@ -223,6 +278,7 @@ if __name__ == "__main__":
     elif not args.src_type:
         raise Exception("Please provide argument -src_type. See module docstring for usage.")
     
+    plt.ion() # turn on interactive plots
     if args.src_type == "nrf_log":
         time, data, properties = format_nrf_log_file(
             fpath=args.fpath, 
@@ -230,14 +286,21 @@ if __name__ == "__main__":
             sample_rate_hz=args.srate,
             )
         print(f"Returned properties {properties}")
-        fig, axs = plot_nrf_data(time,data,title=os.path.basename(args.fpath))
-        input("Press enter to exit...")
     elif args.src_type == "rhdutil_log":
         # srate and active chs mask stored in rhd util log file. 
         # no need for user to provide
         time, data, properties = format_rhdutil_log_file(args.fpath)
         print(f"Returned properties {properties}")
-        fig, axs = plot_rhdutil_log_file(args.fpath)
-        input("Press enter to exit...")
 
-            
+    fig, axs = plot_data(time, data, properties)
+    plt.show()
+    input("Press enter to exit...") 
+
+    
+"""
+lowcut, highcut = 5, 1000
+print(f"Filtering data with lowcut-highcut {lowcut}-{highcut} Hz.")
+filtered_data = apply_bandpass_filter(data, properties['srate_hz'], lowcut, highcut, order=4) # TODO default when no srate in properties
+fig, axs = plot_data(time[200:], filtered_data[:,200:], properties)
+plt.show()
+"""

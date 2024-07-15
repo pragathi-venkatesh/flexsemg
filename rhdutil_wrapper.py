@@ -5,7 +5,7 @@ Run on a windows machine that has ssh access
 to your pi.
 
 Test commands:
-python prag_rhdutil_wrapper
+python rhdutil_wrapper.py ./build/rhd2216_util --config --calibrate --convert 1000 --active_chs 0x000f"
 """
 import os
 import re
@@ -15,7 +15,7 @@ import subprocess
 import numpy as np
 from matplotlib import pyplot as plt
 sys.path.append("./postprocess")
-from flexsemg_postprocess import plot_rhdutil_log_file
+import flexsemg_postprocess
 
 BIN_PATH = "./build/rhd2216_util"
 PLOT_SCRIPT_PATH = "./postprocess/flexsemg_postprocess.py"
@@ -49,7 +49,8 @@ if __name__ == "__main__":
             ret = subprocess.run(cmd, shell=True)
             # finally plot
             plt.ion() # enable interactive plots
-            fig, axs = plot_rhdutil_log_file(dest_fpath)
+            time, data, props = flexsemg_postprocess.format_rhdutil_log_file(dest_fpath)
+            fig, axs = flexsemg_postprocess.plot_data(time, data, props)
             input("Press enter to close plot and exit script...")
         else:
             print("INFO: no output datalog found, skipping plotting.")

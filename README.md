@@ -40,6 +40,16 @@ Linux pragpiv4b 6.6.20+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.6.20-1+rpt1 (2024-03
     crwxrwxrwx   1 root spi     153,   1 Mar 25 00:17 spidev0.1
     ```
 
+# using rhdutil diag:
+1. clone this repo
+1. navigate to rhd_diag directory
+```cd ./rhd_diag```
+1. see docstring in `rhd_diag\rhd2216_util.c` for example usage
+1. for more help, run `./build/rhd2216_util`
+
+# plotting from logs:
+TODO (add screenshots and pictures)
+
 # what rhd register configs actually means:
 ## default configuration (do this during initialization)
 NOTE: LPM: "low power mode"
@@ -93,7 +103,7 @@ NOTE: LPM: "low power mode"
   * e.g. if powering down 16 channels that originally operate at 1 kHz, saves 0.1216 mA.
 
 # Speeds/timings for all the things
-| thing | max speed | source |
+| thing | max speed/min duration | source |
 | ----- | --------- | -------- |
 | RHD SPI SCLK | 25 MHz | RHD2000 series Datasheet |
 | pi v4 SPI SCLK | ~125 MHz | https://raspberrypi.stackexchange.com/questions/699/what-spi-frequencies-does-raspberry-pi-support |
@@ -103,3 +113,9 @@ NOTE: LPM: "low power mode"
 
 
 \**cannot find official NRF52DK max SPI speed, people reporting in forums*
+
+# prag TODO:
+* find max sample rate of rhd - found from delays - pause btwn sampling has to be > 10x time it takes to sample all 16 channels = 1/162E-6s = 6172Hz --> safe to say max srate is 5000 Hz?
+  * time 16 spi reads as part of convert calibration - adjust pause time in between reads to match sample rate
+* make function to create custom noise filter - is noise filter unique to each sample rate? maybe just start with simple bandpass filters? whaaaaaaa
+* TODO set DSP offset flag depending on sample rate and integral of past values
