@@ -14,21 +14,23 @@ import argparse
 import subprocess
 import numpy as np
 from matplotlib import pyplot as plt
-sys.path.append("../postprocess")
+sys.path.append("./postprocess")
 from flexsemg_postprocess import plot_rhdutil_log_file
 
-BIN_PATH = "~/flexsemg/rhd_diag/build/rhd2216_util"
+BIN_PATH = "./build/rhd2216_util"
 PLOT_SCRIPT_PATH = "./postprocess/flexsemg_postprocess.py"
 PI_USER = "prag"
-PI_IP_ADDR = "10.203.229.1"
+PI_IP_ADDR = "10.0.0.228" #"10.203.229.1"
 VLSB = 0.195E-6 # V per least-significant bit of ADC channel
 
 if __name__ == "__main__":
     delimiter = " "
     cli_args = delimiter.join(sys.argv[1:])
-    cmd = f"ssh {PI_USER}@{PI_IP_ADDR} {BIN_PATH} {cli_args}"
+    cmd = f"ssh {PI_USER}@{PI_IP_ADDR} \"cd /home/prag/flexsemg/rhd_diag;{BIN_PATH} {cli_args}\""
     print(f"Running subprocess: {cmd}")
     ret = subprocess.run(cmd, shell=True, capture_output=True)
+    print("Printing subprocess output:")
+    print(ret.stdout.decode('utf-8'))
 
     # plot generated fpath if "--convert or -c tag present in args"
     if ("--convert" in sys.argv) or ("-c" in sys.argv):
@@ -39,10 +41,15 @@ if __name__ == "__main__":
             fpath = m.group(1)
 
         if fpath:
-            plot_rhdutil_log_file(fpath)
+            abs_fpath = "/home/prag/flexsemg/rhd_diag/" + fpath
+            dest_fpath = "./rhd_diag/" + fpath
             # scp file into local dlogs folder
             print("Copying generated datalog to local folder...")
-            cmd = f"scp {PI_USER}@{PI_IP_ADDR}:{fpath} ./dlogs"
-            subprocess.run(cmd, shell=True)
+            cmd = f"scp {PI_USER}@{PI_IP_ADDR}:{abs_fpath} {dest_fpath}"
+            ret = subprocess.run(cmd, shell=True)
+            # finally plot
+            plt.ion() # enable interactive plots
+            fig, axs = plot_rhdutil_log_file(dest_fpath)
+            input("Press enter to close plot and exit script...")
         else:
             print("INFO: no output datalog found, skipping plotting.")
