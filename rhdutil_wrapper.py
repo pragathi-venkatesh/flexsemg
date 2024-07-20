@@ -5,7 +5,7 @@ Run on a windows machine that has ssh access
 to your pi.
 
 Test commands:
-python rhdutil_wrapper.py ./build/rhd2216_util --config --calibrate --convert 1000 --active_chs 0x000f"
+python rhdutil_wrapper.py ./build/rhd2216_util --config --calibrate --convert 1000 --active_chs 0x000f --srate 1500
 """
 import os
 import re
@@ -18,7 +18,6 @@ sys.path.append("./postprocess")
 import flexsemg_postprocess
 
 BIN_PATH = "./build/rhd2216_util"
-PLOT_SCRIPT_PATH = "./postprocess/flexsemg_postprocess.py"
 PI_USER = "prag"
 PI_IP_ADDR = "10.0.0.228" #"10.203.229.1"
 VLSB = 0.195E-6 # V per least-significant bit of ADC channel
@@ -43,6 +42,7 @@ if __name__ == "__main__":
         if fpath:
             abs_fpath = "/home/prag/flexsemg/rhd_diag/" + fpath
             dest_fpath = "./rhd_diag/" + fpath
+            fig_fpath = "./rhd_diag/dlogs/figs/" + os.path.basename(fpath) + ".png"
             # scp file into local dlogs folder
             print("Copying generated datalog to local folder...")
             cmd = f"scp {PI_USER}@{PI_IP_ADDR}:{abs_fpath} {dest_fpath}"
@@ -50,7 +50,8 @@ if __name__ == "__main__":
             # finally plot
             plt.ion() # enable interactive plots
             time, data, props = flexsemg_postprocess.format_rhdutil_log_file(dest_fpath)
-            fig, axs = flexsemg_postprocess.plot_data(time, data, props)
+            fig, axs = flexsemg_postprocess.plot_data(time, data, props, plot_fft=True)
+            plt.savefig(fig_fpath)
             input("Press enter to close plot and exit script...")
         else:
             print("INFO: no output datalog found, skipping plotting.")

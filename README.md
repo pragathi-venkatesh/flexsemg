@@ -12,6 +12,7 @@ TBD: support for controllers other than pi (especially NRF52 DK)
   - [default configuration (do this during initialization)](#default-configuration-do-this-during-initialization)
   - [register fields for low power mode:](#register-fields-for-low-power-mode)
 - [prag TODO:](#prag-todo)
+- [coding conventions](#coding-conventions)
 
 
 # instructions for rpi
@@ -134,3 +135,9 @@ NOTE: LPM: "low power mode"
   * time 16 spi reads as part of convert calibration - adjust pause time in between reads to match sample rate
 * make function to create custom noise filter - is noise filter unique to each sample rate? maybe just start with simple bandpass filters? whaaaaaaa
 * TODO set DSP offset flag depending on sample rate and integral of past values
+* add INFO to logging w info
+
+# coding conventions
+* when using printf, use logging tags like `ERROR`, `WARNING`, `INFO` etc...
+* try to limit line width to 80 characters
+* include "usage" docstring and/or example test code whenever possible

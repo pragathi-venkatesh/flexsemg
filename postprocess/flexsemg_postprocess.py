@@ -220,11 +220,12 @@ def plot_data(time, data, properties, plot_fft=True):
         freqs, fft = get_fft(data, srate_hz)
         ncols = 2
 
+    # force axs into 2d array for consistency
     fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(8,16))
     if nrows==1:
-        axs = [axs]
+        axs = np.array([axs])
     if ncols==1:
-        axs = [[ax] for ax in axs]
+        axs = np.array([[ax] for ax in axs])
     
     # plot signal
     for row in range(nrows):
