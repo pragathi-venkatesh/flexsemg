@@ -53,7 +53,7 @@ static void pabort(const char *s) {
 static void print_usage(const char *prog)
 {
 	printf("Usage: %s [-Dsdnrwc]\n", prog);
-	puts("  -D --device			device to use (default /dev/spidev0.1).\n"
+	printf("  -D --device			device to use (default /dev/spidev0.1).\n"
 	     "  -s --speed			max speed (Hz), Default 12.5 MHz. \n"
 	     "  -d --delay			delay (usec).\n"
 		 "  -n --reg_num		\tRHD register number to read or write.\n"
@@ -66,6 +66,9 @@ static void print_usage(const char *prog)
 		 "  -e --clear			Clear Calibration.\n"
 		 "  -R --srate			Sampling rate in Hz, used with --convert command.\n"
 		 );
+	printf(
+		"Example:\n./build/rhd2216_util --config --calibrate --convert 1000 --active_chs 0x5555 --srate 1250\n"
+		);
 	exit(1);
 }
 

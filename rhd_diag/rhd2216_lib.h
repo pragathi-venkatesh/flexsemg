@@ -28,8 +28,8 @@ using SPI0:
 #define DONT_CARE 0
 #endif
 
-#ifndef RHD_MAX_SRATE
-#define RHD_MAX_SRATE 10000 // based on 8MHz SPI freq
+#ifndef RHD_MAX_SPI_RATE_HZ
+#define RHD_MAX_SPI_RATE_HZ 25000000 // 25 MHz
 #endif
 
 typedef struct rhd_reg {

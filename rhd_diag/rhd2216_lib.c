@@ -40,11 +40,66 @@ static void pabort(const char *s) {
 	abort();
 }
 
+static int get_max_srate_and_delay(int fd, uint16_t srate, uint16_t active_chs_msk, uint16_t* max_srate, uint16_t* delay_us) {
+	// measures duration of convert for all chs in active_chs_msk
+	// then uses that duration to calculate appropriate delay needed 
+	// to reach desired srate
+	// returns -1 if desired srate is not possible (too fast)
+
+	int ch_num = 0;
+	size_t N = 2;
+	uint8_t tx_buf[] = {0, 0};
+	uint8_t rx_buf[] = {0xde, 0xad};
+	uint8_t command_word = 0;
+	double desired_period_sec = 1.0 / srate;
+	double time_spent_sec;
+	clock_t begin;
+	clock_t end;
+
+	begin = clock();
+
+	command_word = 0;
+	command_word |= ch_num & 0x3f;
+	tx_buf[1] = dsp_offset_rem_en & 0b1;
+	// read from same channel 16 times just to get duration
+	rhd_spi_xfer(fd, tx_buf, N, rx_buf);
+
+	printf(
+		"PVDEBUG: Desired srate: %.3e Hz, desired sampling period is %.3e s.\n",
+		(double) srate,
+		desired_period_sec
+		);
+	end = clock();
+
+	time_spent_sec = (double)(end - begin) / CLOCKS_PER_SEC;
+	*max_srate = (uint16_t) (1.0 / time_spent_sec);
+
+	if (time_spent_sec > desired_period_sec) {
+		*delay_us = 0;
+		printf(
+			"PVDEBUG: Desired srate %.3e Hz too fast with current SPI properties. Each read from active_chs_mask %04x takes %.2e s, so max srate is %.3e Hz\n",
+			(double) srate,
+			active_chs_msk,
+			time_spent_sec,
+			(double) *max_srate
+			);
+		return -1;
+	}
+
+	*delay_us = (uint16_t) ((desired_period_sec - time_spent_sec) * 1000000);
+	printf(
+		"PVDEBUG: reading from active_chs_msk %04x took %.2e s\n. Resulting delay_us applied by controller is %d us\n", 
+		active_chs_msk,
+		time_spent_sec,
+		*delay_us
+	);
+	return 0;	
+}
+
 int get_dsp_offset_rem_en(void) {
 	return dsp_offset_rem_en;
 }
 
-// TODO is this supposed to do anything? like write to a register?
 int set_dsp_offset_rem_en(int en) {
 	dsp_offset_rem_en = en;
 	return 0;
@@ -108,26 +163,37 @@ int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t srate, uint16_t *data_
 		pabort("rhd_convert: argument active_chs_mask must be non-zero.");
 	}
 
-	if (srate > RHD_MAX_SRATE) {
-		printf(
-			"WARNING: desired srate %d Hz greater than max srate %d Hz. Defaulting to max srate.",
-			srate,
-			RHD_MAX_SRATE
-		);
-		srate = RHD_MAX_SRATE;
-	}
+	// if (srate > RHD_MAX_SPI_RATE_HZ) {
+	// 	printf(
+	// 		"WARNING: desired srate %d Hz greater than max srate %d Hz. Defaulting to max srate.",
+	// 		srate,
+	// 		RHD_MAX_SPI_RATE_HZ
+	// 	);
+	// 	srate = RHD_MAX_SPI_RATE_HZ;
+	// }
 
-	printf("PVDEBUG: dsp rem en = %d\n", dsp_offset_rem_en);
 	size_t counter = 0;
 	int ret;
 	size_t N = 2;
 	uint8_t tx_buf[] = {0, 0};
 	uint8_t rx_buf[] = {0xde, 0xad};
 	uint8_t command_word = 0;
-	uint16_t delay_amt_us = 1000000 / srate;
+	uint16_t max_srate;
+	uint16_t delay_amt_us;
+	ret = get_max_srate_and_delay(fd, srate, active_chs_msk, &max_srate, &delay_amt_us);
+
+	if (ret == -1) {
+		printf(
+			"WARNING: desired srate %.2e Hz greater than max possible srate %.2e Hz. Using max srate.\n",
+			(double) srate,
+			(double) max_srate
+		);
+		srate = max_srate;
+	}
 
 	// due to pipelining, first two rx results are garbage values.
 	// function will only start writing to data buf after first two spi transfers
+	printf("PVDEBUG: dsp rem en = %d\n", dsp_offset_rem_en);
 	while (counter < (buf_len+2)) {
 		// assume convert occurs instantly. 
 		// enforce sample rate by delaying by 1/srate seconds
@@ -244,6 +310,8 @@ int rhd_calibrate(int fd) {
 	uint16_t databuf[16];
 	set_dsp_offset_rem_en(1);
 	// read from all 16 channels, doesn't matter if they are active or not.
+	// TODO test doing mulitple convert cycles with dsp_offset_rem_en settles 
+	// DC offset faster.
 	rhd_convert(fd, 0xffff, 1000, databuf, 16);
 	set_dsp_offset_rem_en(0);
 	return ret;
