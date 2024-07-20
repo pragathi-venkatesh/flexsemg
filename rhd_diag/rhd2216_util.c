@@ -181,12 +181,22 @@ static void get_fname(char *fname, size_t max_len) {
 	time_t t;
     struct tm *tmp;
     char time_str[14];
+
+	// default name:
+	sprintf(fname, "rhd2216_util_unknown.txt");
 	
 	time(&t);
 	tmp = localtime(&t);
 	strftime(time_str, sizeof(time_str), "%Y%m%d_%H%M%S", tmp);
 
-	sprintf(fname, "./dlogs/rhd2216_util_convert_%s_N%ld.txt", time_str, num_samples);
+	sprintf(
+		fname,
+		"./dlogs/rhdutil_%s_%dHz_chmsk%04x_N%ld.txt", 
+		time_str,
+		srate, 
+		active_chs_mask,
+		num_samples
+		);
 }
 
 int main(int argc, char *argv[]) {

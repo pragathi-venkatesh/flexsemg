@@ -290,6 +290,7 @@ int rhd_reg_config_default(int fd, uint16_t active_chs_mask) {
 
 int rhd_calibrate(int fd) {
 	int ret;
+	int N;
 	uint8_t tx_buf[] = {0,0};
 	uint8_t rx_buf[] = {0xde, 0xad};
 	tx_buf[0] = 0b01010101;
@@ -307,12 +308,11 @@ int rhd_calibrate(int fd) {
 	}
 
 	// do DSP offset removal on all channels
-	uint16_t databuf[16];
+	N = 16;
+	uint16_t databuf[N];
 	set_dsp_offset_rem_en(1);
 	// read from all 16 channels, doesn't matter if they are active or not.
-	// TODO test doing mulitple convert cycles with dsp_offset_rem_en settles 
-	// DC offset faster.
-	rhd_convert(fd, 0xffff, 1000, databuf, 16);
+	rhd_convert(fd, 0xffff, 1000, databuf, N);
 	set_dsp_offset_rem_en(0);
 	return ret;
 }
