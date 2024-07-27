@@ -21,8 +21,6 @@ using SPI0:
 #include <getopt.h>
 #include "pi_spi_lib.h"
 
-#undef DEBUG // override all other debug statements?s
-#define DEBUG 0 // if nonzero, prints debug statements
 
 #ifndef DONT_CARE
 #define DONT_CARE 0

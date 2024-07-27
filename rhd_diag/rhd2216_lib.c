@@ -1,5 +1,6 @@
 #include "rhd2216_lib.h"
 
+static int verbose = 0; // if 1, logs ALL spi read/writes/
 static int dsp_offset_rem_en = 0; // active high
 
 // register defaults
@@ -88,9 +89,10 @@ static int get_max_srate_and_delay(int fd, uint16_t srate, uint16_t active_chs_m
 
 	*delay_us = (uint16_t) ((desired_period_sec - time_spent_sec) * 1000000);
 	printf(
-		"PVDEBUG: reading from active_chs_msk %04x took %.2e s\n. Resulting delay_us applied by controller is %d us\n", 
+		"PVDEBUG: reading from active_chs_msk %04x took %.2e s\n. Desired period is %.2e us. Resulting delay_us applied by controller is %d us\n", 
 		active_chs_msk,
-		time_spent_sec,
+		time_spent_sec * 1000000,
+		desired_period_sec * 1000000,
 		*delay_us
 	);
 	return 0;	
@@ -129,7 +131,7 @@ int rhd_reg_read(int fd, uint8_t reg_num, uint8_t *result) {
 	ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
 	
 	*result = rx_buf[1];
-	if (DEBUG) {
+	if (verbose) {
 		printf("Got data %x\n\n", *result);
 	}
 	
@@ -137,7 +139,7 @@ int rhd_reg_read(int fd, uint8_t reg_num, uint8_t *result) {
 }
 
 int rhd_reg_write(int fd, uint8_t reg_num, uint8_t reg_data) {
-	if (DEBUG) {
+	if (verbose) {
 		printf("W: reg#%d, data %x\n", reg_num, reg_data);
 	}
 	int ret;
@@ -163,15 +165,6 @@ int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t srate, uint16_t *data_
 		pabort("rhd_convert: argument active_chs_mask must be non-zero.");
 	}
 
-	// if (srate > RHD_MAX_SPI_RATE_HZ) {
-	// 	printf(
-	// 		"WARNING: desired srate %d Hz greater than max srate %d Hz. Defaulting to max srate.",
-	// 		srate,
-	// 		RHD_MAX_SPI_RATE_HZ
-	// 	);
-	// 	srate = RHD_MAX_SPI_RATE_HZ;
-	// }
-
 	size_t counter = 0;
 	int ret;
 	size_t N = 2;
@@ -180,6 +173,8 @@ int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t srate, uint16_t *data_
 	uint8_t command_word = 0;
 	uint16_t max_srate;
 	uint16_t delay_amt_us;
+
+	printf("PVDEBUG: start rhd_convert.");
 	ret = get_max_srate_and_delay(fd, srate, active_chs_msk, &max_srate, &delay_amt_us);
 
 	if (ret == -1) {
@@ -226,6 +221,7 @@ int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t srate, uint16_t *data_
 		}
 	}
 
+	printf("PVDEBUG: end rhd_convert.");
 	return 0;
 }
 
@@ -246,15 +242,14 @@ int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t srate, uint16_t *data_
 
 // initializes RHD registers to default
 int rhd_reg_config_default(int fd, uint16_t active_chs_mask) {
-	size_t reg_list_len = sizeof(rhd2216_reg_list) / sizeof(rhd2216_reg_list[0]);
-	if (DEBUG) {
-		printf("PVDEBUG: Got reg_list_len %zu\n", reg_list_len);
-	}
-
 	// idk why but michael does 20 extra reads in his 2022 nrf code.
 	// seems overkill but why not. -PV 2024-May-18
+	size_t reg_list_len = sizeof(rhd2216_reg_list) / sizeof(rhd2216_reg_list[0]);
+	int ret;
 	uint8_t tx_buf[] = {0b11111111, 0};
 	uint8_t rx_buf[] = {0,0};
+
+	printf("PVDEBUG: Got reg_list_len %zu\n", reg_list_len);
 	for (int i=0; i<20; ++i) {
 		rhd_spi_xfer(fd, tx_buf, 2, rx_buf);
 	}
@@ -268,11 +263,11 @@ int rhd_reg_config_default(int fd, uint16_t active_chs_mask) {
 		}
 
 		uint8_t read_data;
-		rhd_reg_write(fd, cur_reg.reg_num, cur_reg.config_write_val);
-		rhd_reg_read(fd, cur_reg.reg_num, &read_data);
+		ret = rhd_reg_write(fd, cur_reg.reg_num, cur_reg.config_write_val);
+		ret = rhd_reg_read(fd, cur_reg.reg_num, &read_data);
 		if (read_data != cur_reg.config_check_val) {
 			printf(
-				"WARNING: expected reg %d to read %x after writing %x, but got %x instead\n",
+				"WARNING: reg_config_default: expected reg %d to read %x after writing %x, but got %x instead\n",
 				cur_reg.reg_num,
 				cur_reg.config_check_val,
 				cur_reg.config_write_val,
@@ -285,18 +280,23 @@ int rhd_reg_config_default(int fd, uint16_t active_chs_mask) {
 	rhd_reg_write(fd, 14, (uint8_t) (active_chs_mask & 0xff));
 	rhd_reg_write(fd, 15, (uint8_t) (active_chs_mask >> 8) && 0xff);
 
+	printf("PVDEBUG: end register config sequence, ret %d.", ret);
 	return 0;
 }
 
 int rhd_calibrate(int fd) {
 	int ret;
-	int N;
+	int N = 16;
 	uint8_t tx_buf[] = {0,0};
 	uint8_t rx_buf[] = {0xde, 0xad};
+	uint16_t databuf[N];
+
 	tx_buf[0] = 0b01010101;
+
+	printf("PVDEBUG: start calibration");
 	ret = rhd_spi_xfer(fd, tx_buf, 2, rx_buf);
 	if (ret == -1) {
-		pabort("ERROR:could not send calibration command\n");
+		pabort("ERROR: could not send calibration command\n");
 	}
 
 	// 9 dummy reads needed following calibrate
@@ -308,12 +308,11 @@ int rhd_calibrate(int fd) {
 	}
 
 	// do DSP offset removal on all channels
-	N = 16;
-	uint16_t databuf[N];
 	set_dsp_offset_rem_en(1);
 	// read from all 16 channels, doesn't matter if they are active or not.
 	rhd_convert(fd, 0xffff, 1000, databuf, N);
 	set_dsp_offset_rem_en(0);
+	printf("PVDEBUG: end calibration, ret %d", ret);
 	return ret;
 }
 
@@ -327,5 +326,6 @@ int rhd_clear_calibration(int fd) {
 		pabort("ERROR: could not send clear calibration command\n");
 	}
 
+	printf("PVDEBUG: clear calibration command sent, ret %d", ret);
 	return ret;
 }
