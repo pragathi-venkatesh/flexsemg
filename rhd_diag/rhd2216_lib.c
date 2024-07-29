@@ -207,7 +207,7 @@ int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t srate, uint16_t *data_
 			tx_buf[1] = dsp_offset_rem_en & 0b1;
 			ret = rhd_spi_xfer(fd, tx_buf, N, rx_buf);
 			if (ret == -1) {
-				printf("spi xfer failed during convert ch %d", ch);
+				printf("spi xfer failed during convert ch %d.\n", ch);
 			}
 
 			if (counter >= 2) {
@@ -280,7 +280,7 @@ int rhd_reg_config_default(int fd, uint16_t active_chs_mask) {
 	rhd_reg_write(fd, 14, (uint8_t) (active_chs_mask & 0xff));
 	rhd_reg_write(fd, 15, (uint8_t) (active_chs_mask >> 8) && 0xff);
 
-	printf("PVDEBUG: end register config sequence, ret %d.", ret);
+	printf("PVDEBUG: end register config sequence, ret %d.\n", ret);
 	return 0;
 }
 
@@ -312,7 +312,7 @@ int rhd_calibrate(int fd) {
 	// read from all 16 channels, doesn't matter if they are active or not.
 	rhd_convert(fd, 0xffff, 1000, databuf, N);
 	set_dsp_offset_rem_en(0);
-	printf("PVDEBUG: end calibration, ret %d", ret);
+	printf("PVDEBUG: end calibration, ret %d.\n", ret);
 	return ret;
 }
 
@@ -326,6 +326,6 @@ int rhd_clear_calibration(int fd) {
 		pabort("ERROR: could not send clear calibration command\n");
 	}
 
-	printf("PVDEBUG: clear calibration command sent, ret %d", ret);
+	printf("PVDEBUG: clear calibration command sent, ret %d.\n", ret);
 	return ret;
 }
