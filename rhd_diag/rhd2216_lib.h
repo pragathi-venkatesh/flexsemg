@@ -44,9 +44,9 @@ int get_dsp_offset_rem_en(void);
 int set_dsp_offset_rem_en(int en);
 
 // util functions
-int rhd_reg_read(int fd, uint8_t reg_num, uint8_t *result);
-int rhd_reg_write(int fd, uint8_t reg_num, uint8_t reg_data);
-int rhd_convert(int fd, uint16_t active_chs_msk, uint16_t srate, uint16_t *data_buf, size_t data_buf_len); // TODO implement srate
-int rhd_reg_config_default(int fd, uint16_t active_chs_mask);
-int rhd_calibrate(int fd);
-int rhd_clear_calibration(int fd);
+int rhd_reg_read(uint8_t reg_num, uint8_t *result);
+int rhd_reg_write(uint8_t reg_num, uint8_t reg_data);
+int rhd_convert(uint16_t active_chs_msk, uint16_t srate, uint16_t *data_buf, size_t data_buf_len); // TODO implement srate
+int rhd_reg_config_default(uint16_t active_chs_mask);
+int rhd_calibrate();
+int rhd_clear_calibration();

@@ -1,7 +1,7 @@
 /*
-2024-April-07 Pragathi Venkatesh (PV)
+Created: 2024-April-07 Pragathi Venkatesh (PV)
 Modified from https://github.com/rm-hull/spidev-test/blob/master/spidev_test.c
-for use with RHD2216
+for use with RHD2216 + pi controller
 
 Usage:
 Run from rhd_diag directory
@@ -28,9 +28,9 @@ Help:
 static uint8_t reg_data;
 static uint8_t reg_num;
 static uint8_t mode;
-static uint8_t bpw;
 static uint32_t speed;
 static char *device = PI_SPI_0_0;
+static uint8_t bpw = 8; // bits per word
 static size_t num_samples = 16;
 static uint16_t srate = 1000; 
 static uint16_t active_chs_mask = 0xffff;
@@ -53,19 +53,19 @@ static void pabort(const char *s) {
 static void print_usage(const char *prog)
 {
 	printf("Usage: %s [-Dsdnrwc]\n", prog);
-	printf("  -D --device			device to use (default /dev/spidev0.1).\n"
-	     "  -s --speed			max speed (Hz), Default 12.5 MHz. \n"
-	     "  -d --delay			delay (usec).\n"
-		 "  -n --reg_num		\tRHD register number to read or write.\n"
-		 "  -r --reg_read		\tRead register specified by --reg_num.\n"
-		 "  -w --reg_write		Write data (in hex) register specified by --reg_num.\n"
-		 "  -a --active_chs		16-bitmask (in hex) defining which channels active. e.g. 0x8001 enables ch 16 and ch 1 only.\n"
-		 "  -c --convert		\tContinuously reads chs 1-16 until N samples reached. Default 16 samples. Always starts at ch 1.\n"
-		 "  -g --config			Configures RHD registers to default values.\n"
-		 "  -C --calibrate		Initiate ADC self-calibration routine.\n"
-		 "  -e --clear			Clear Calibration.\n"
-		 "  -R --srate			Sampling rate in Hz, used with --convert command.\n"
-		 );
+	printf(
+		"  -D --device			device to use (default /dev/spidev0.1).\n"
+	    "  -s --speed			max SPI speed (Hz), Default 8 MHz. \n"
+		"  -n --reg_num			RHD register number to read or write.\n"
+		"  -r --reg_read		\tRead register specified by --reg_num.\n"
+		"  -w --reg_write		Write data (in hex) register specified by --reg_num.\n"
+		"  -a --active_chs		16-bitmask (in hex) defining which channels active. e.g. 0x8001 enables ch 16 and ch 1 only.\n"
+		"  -c --convert			Continuously reads chs 1-16 until N samples reached. Default 16 samples. Always starts at ch 1.\n"
+		"  -g --config			Configures RHD registers to default values.\n"
+		"  -C --calibrate		Initiate ADC self-calibration routine.\n"
+		"  -e --clear			Clear Calibration.\n"
+		"  -R --srate			Sampling rate in Hz, used with --convert command.\n"
+		);
 	printf(
 		"Example:\n./build/rhd2216_util --config --calibrate --convert 1000 --active_chs 0x5555 --srate 1250\n"
 		);
@@ -81,7 +81,6 @@ static void parse_opts(int argc, char *argv[])
 			// name, has_arg, int *flag, int *val
 			{ "device",  	1, 0, 'D' },
 			{ "speed",   	1, 0, 's' },
-			{ "delay",   	1, 0, 'd' },
 			{ "mode",		1, 0, 'M'},
 			{ "reg_num", 	1, 0, 'n'},
 			{ "reg_read", 	0, 0, 'r'},
@@ -103,12 +102,11 @@ static void parse_opts(int argc, char *argv[])
 
 		switch (c) {
 		case 'D':
+			printf("WARNING: --device argument not implemented. Using default.\n");
 			// TODO
 			break;
 		case 's':
-			// TODO
-			break;
-		case 'd':
+			printf("WARNING: --speed argument not implemented. Using default.\n");
 			// TODO
 			break;
 		case 'n':
@@ -157,7 +155,7 @@ static void parse_opts(int argc, char *argv[])
 
 	// process arguments
 	if ( !FOUND_REG_NUM && (FOUND_REG_READ || FOUND_REG_WRITE) ) {
-		pabort("ERROR: If reg_write/reg_read specified, need to provide reg_num");
+		pabort("ERROR: If reg_write/reg_read specified, need to provide reg_num\n");
 	}
 
 	if ( !FOUND_ACTIVE_CHS ) {
@@ -204,43 +202,40 @@ int main(int argc, char *argv[]) {
 		print_usage(argv[0]);
 	}
 	
-	
 	// initialize with default values
-
 	int ret = 0;
-	int fd = open(device, O_RDWR);
-
 	parse_opts(argc, argv);
 
-	if (fd < 0)
-		pabort("can't open device");
+	ret = spi_init(device);
+	if (ret < 0) 
+		pabort("ERROR: Could not open SPI file, aborting.\n");
 
 	mode = 0;
 	bpw = 8;
-	speed = 8000000; //12500000; // 12.5 mHz
-	ret = spi_config(fd, mode, bpw, speed);
+	speed = 8000000;
+	ret = spi_config(mode, bpw, speed);
 	if (ret == -1) 
-		pabort("Could not configure pi spi properties");
+		pabort("Could not configure pi spi properties.\n");
 	
 	if (FOUND_REG_READ) {
 		uint8_t read_data;
-		ret = rhd_reg_read(fd, reg_num, &read_data);
+		ret = rhd_reg_read(reg_num, &read_data);
 		printf("read: reg_num: %d, result: 0x%02x\n", reg_num, read_data);
 	}
 
 	if (FOUND_REG_WRITE) {
 		// TODO
 		printf("write: reg_num: %d, write_data: 0x%02x\n", reg_num, reg_data);
-		ret = rhd_reg_write(fd, reg_num, reg_data);
+		ret = rhd_reg_write(reg_num, reg_data);
 	}
 
 	if (FOUND_CONFIG) {
-		ret = rhd_reg_config_default(fd, active_chs_mask);
+		ret = rhd_reg_config_default(active_chs_mask);
 		printf("Default register configuration done, ret code: %d\n", ret);
 	}
 
 	if (FOUND_CALIBRATE) {
-		ret = rhd_calibrate(fd);
+		ret = rhd_calibrate();
 		// calibrate command always returns 2? not sure what this means
 		// but I analyzed the signals in a logic analyzer and they looked
 		// fine. -PV 2024-May-12
@@ -256,7 +251,7 @@ int main(int argc, char *argv[]) {
 		output = fopen(fname, "w");
 		// uint16_t data_buf[num_samples];
 		uint16_t *data_buf = (uint16_t*) malloc(num_samples * sizeof(uint16_t));
-		ret = rhd_convert(fd, active_chs_mask, srate, data_buf, num_samples);
+		ret = rhd_convert(active_chs_mask, srate, data_buf, num_samples);
 
 		// write to file
 		printf("Writing to file...\n");
@@ -280,7 +275,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (FOUND_CLEAR) {
-		ret = rhd_clear_calibration(fd);
+		ret = rhd_clear_calibration();
 		if (ret == 0) {
 			printf("Clear calibration done, ret code: %d\n", ret);
 		} else {
@@ -288,8 +283,8 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	close(fd);
-    return 0;
+	ret = spi_close();
+    return ret;
 }
 
 
