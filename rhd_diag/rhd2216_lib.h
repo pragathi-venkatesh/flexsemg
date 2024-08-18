@@ -16,11 +16,8 @@ using SPI0:
 */
 
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include "pi_spi_lib.h"
-
 
 #ifndef DONT_CARE
 #define DONT_CARE 0

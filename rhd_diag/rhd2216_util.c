@@ -21,6 +21,8 @@ Help:
 	./build/rhd2216_util
 */
 
+#include <stdio.h>
+#include <getopt.h>
 #include <time.h> // for timestamps
 #include "pi_spi_lib.h"
 #include "rhd2216_lib.h"
