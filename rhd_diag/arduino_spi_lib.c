@@ -1,5 +1,14 @@
 #include "arduino_spi_lib.h"
 
+#TODO declare private member variables here:
+
+int spi_init() {
+	int ret;
+	#TODO implement me!
+	ret = -1;
+	return ret;
+}
+
 int spi_config(uint8_t mode, uint8_t bpw, uint32_t speed) {
     int ret;
 	#TODO implement me!
@@ -11,6 +20,13 @@ int spi_config(uint8_t mode, uint8_t bpw, uint32_t speed) {
 // result stored in rx_buf
 int rhd_spi_xfer(uint8_t *tx_buf, size_t tx_len, uint8_t *rx_buf) {
     int ret;
+	# TODO implement me!
+	ret = -1;
+    return ret;
+}
+
+int spi_close() {
+	int ret;
 	# TODO implement me!
 	ret = -1;
     return ret;
