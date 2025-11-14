@@ -128,16 +128,11 @@ NOTE: LPM: "low power mode"
 * reg 14-17: set `0` to power down amplifiers, saving power if there are channels that don't need to be observed. current saved is 7.6 uA/kHz per amplifier. 
   * e.g. if powering down 16 channels that originally operate at 1 kHz, saves 0.1216 mA.
 
-
-
-# prag TODO:
-* find max sample rate of rhd - found from delays - pause btwn sampling has to be > 10x time it takes to sample all 16 channels = 1/162E-6s = 6172Hz --> safe to say max srate is 5000 Hz?
-  * time 16 spi reads as part of convert calibration - adjust pause time in between reads to match sample rate
+# Future work:
 * make function to create custom noise filter - is noise filter unique to each sample rate? maybe just start with simple bandpass filters? whaaaaaaa
-* TODO set DSP offset flag depending on sample rate and integral of past values
-* add INFO to logging w info
+* Set DSP offset flag depending on sample rate and integral of past values
 
-# coding conventions
+# Coding conventions
 * when using printf, use logging tags like `ERROR`, `WARNING`, `INFO` etc...
 * try to limit line width to 80 characters
 * include "usage" docstring and/or example test code whenever possible
